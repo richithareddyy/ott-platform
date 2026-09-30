@@ -3,6 +3,7 @@ services:
     name: streambox
     runtime: docker
     plan: free
+    region: oregon
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
