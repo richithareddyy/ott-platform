@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: streambox
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_POOL_SIZE
+        value: "20"
