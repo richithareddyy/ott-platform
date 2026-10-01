@@ -125,11 +125,14 @@ body:not(.is-admin) .admin-only { display: none !important; }
 .btn.text.accent:hover { color: var(--accent-hover); }
 .account .who { font-size: 13px; color: var(--text-3); margin-right: 4px; }
 
-/* ---------- Visitor bar (signed-out home only) ---------- */
-.visitor-bar { border-top: 1px solid var(--line); font-size: 13px; color: var(--text-2); }
-.visitor-bar .page { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-height: 36px; padding-block: 6px; }
-.visitor-bar .push { margin-left: auto; }
-.visitor-bar a:hover { color: var(--text); }
+/* ---------- Demo strip (signed-out home only) ---------- */
+.demo-strip { background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.demo-strip .page { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 22px; }
+.demo-copy { min-width: 0; }
+.demo-copy .kicker { color: var(--accent); }
+.demo-line { margin-top: 6px; font-size: 18px; font-weight: 500; letter-spacing: -.01em; color: var(--text); }
+.demo-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.btn.large { height: 48px; padding: 0 24px; font-size: 15px; }
 
 /* ---------- Artwork ---------- */
 .poster { position: relative; aspect-ratio: 2 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--bg-2); }
@@ -417,8 +420,9 @@ tbody tr:hover td { background: rgba(255, 244, 230, .02); }
   .tabbar a.active { color: var(--text); }
   .toast { bottom: calc(72px + env(safe-area-inset-bottom)); }
 
-  .visitor-bar .muted { display: none; }
-  .visitor-bar .push { margin-left: 0; }
+  .demo-strip .page { flex-direction: column; align-items: stretch; gap: 14px; padding-block: 18px; }
+  .demo-line { font-size: 16px; }
+  .demo-actions { flex-direction: column; align-items: stretch; gap: 4px; }
 
   .hero { display: block; height: auto; padding-top: 58vw; }
   .hero .backdrop { left: 0; right: 0; bottom: auto; height: 78vw; }

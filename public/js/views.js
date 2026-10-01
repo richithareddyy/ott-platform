@@ -48,12 +48,16 @@ const Views = (() => {
     ]);
     const hero = featured[0];
     view().innerHTML = `
-      ${!Api.session ? `<div class="visitor-bar"><div class="page">
-        <span>StreamBox is a portfolio project by ${esc(SITE.author)}.</span>
-        <button class="link-btn" data-start-demo>Explore as a guest</button>
-        <span class="muted">No account needed</span>
-        <a class="muted push" href="${esc(SITE.github)}" target="_blank" rel="noopener">Source on GitHub</a>
-      </div></div>` : ''}
+      ${!Api.session ? `<section class="demo-strip" aria-label="Live demo"><div class="page">
+        <div class="demo-copy">
+          <p class="kicker">Portfolio project · ${esc(SITE.author)}</p>
+          <p class="demo-line">Explore the full app without an account: browse, search, play, and build your own list.</p>
+        </div>
+        <div class="demo-actions">
+          <button class="btn primary large" data-start-demo>${icon.play}Try the live demo</button>
+          <a class="btn text" href="${esc(SITE.github)}" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+      </div></section>` : ''}
       ${hero ? `<section class="hero">
         ${UI.backdrop(hero)}
         <div class="page hero-body">
