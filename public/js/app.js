@@ -51,10 +51,10 @@ const App = (() => {
     document.body.classList.toggle('is-admin', s?.user.role === 'admin');
     const account = document.getElementById('account');
     if (!s) {
-      account.innerHTML = '<button class="btn secondary small" id="demo-btn">Try demo</button><a class="btn text small" href="#/login">Sign in</a>';
+      account.innerHTML = '<button class="btn text small accent" id="demo-btn">Try demo</button><a class="btn text small" href="#/login">Sign in</a>';
     } else if (Api.isGuest) {
       account.innerHTML = '<span class="who" title="Shared demo account">Guest</span>'
-        + '<a class="btn secondary small" href="#/register">Sign up</a>'
+        + '<a class="btn text small accent" href="#/register">Sign up</a>'
         + '<button class="btn text small" id="logout">Exit</button>';
     } else {
       account.innerHTML = `<span class="who">${UI.esc(s.user.name)}</span><button class="btn text small" id="logout">Sign out</button>`;
