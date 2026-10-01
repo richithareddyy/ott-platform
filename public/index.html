@@ -5,15 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>StreamBox</title>
   <meta name="description" content="Browse, search, and stream movies and series." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0e0f13" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <a href="#/" class="brand">Stream<span>Box</span></a>
+    <a href="#/" class="brand" aria-label="StreamBox home">
+      <img src="/favicon.svg" alt="" width="30" height="30" />
+      <span class="wordmark">Stream<span>Box</span></span>
+    </a>
     <nav class="nav" id="nav">
       <a href="#/" data-nav="home">Home</a>
       <a href="#/browse" data-nav="browse">Browse</a>
-      <a href="#/my-list" data-nav="my-list" class="auth-only">My List</a>
+      <a href="#/my-list" data-nav="my-list">My List</a>
       <a href="#/admin" data-nav="admin" class="admin-only">Admin</a>
     </nav>
     <form class="search" id="search-form" role="search">
@@ -27,6 +32,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="/js/api.js"></script>
+  <script src="/js/posters.js"></script>
   <script src="/js/ui.js"></script>
   <script src="/js/views.js"></script>
   <script src="/js/app.js"></script>

@@ -9,7 +9,9 @@ const UI = (() => {
 
   function poster(t) {
     return `<div class="poster" style="--h:${Number(t.posterHue) || 210}">
+      ${Posters.svg(t)}
       <span class="badge">${esc(t.maturityRating)}</span>
+      ${t.type === 'series' ? '<span class="badge series">SERIES</span>' : ''}
       <span class="poster-name">${esc(t.name)}</span>
     </div>`;
   }

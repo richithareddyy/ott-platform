@@ -47,6 +47,29 @@ describe('auth', () => {
     assert.equal(statuses.filter((s) => s === 409).length, 9);
   });
 
+  it('signs into one shared guest account, even under concurrent clicks', async () => {
+    const User = require('../src/models/User');
+    const results = await Promise.all(Array.from({ length: 10 }, () => api().post('/api/auth/demo')));
+    assert.ok(results.every((r) => r.status === 200 && r.body.token));
+    assert.ok(results.every((r) => r.body.user.role === 'demo'));
+    assert.equal(await User.countDocuments({ role: 'demo' }), 1);
+  });
+
+  it('lets guests use My List but not post reviews', async () => {
+    const { makeTitle } = require('./helpers');
+    const t = await makeTitle();
+    const { body } = await api().post('/api/auth/demo');
+    const auth = { Authorization: `Bearer ${body.token}` };
+    // New guest accounts start with popular titles already listed, so this may be a no-op.
+    assert.ok([200, 201].includes((await api().put(`/api/me/watchlist/${t._id}`).set(auth)).status));
+    const list = await api().get('/api/me/watchlist').set(auth);
+    assert.ok(list.body.items.some((i) => String(i._id) === String(t._id)));
+    const review = await api().put(`/api/titles/${t._id}/reviews/mine`).set(auth).send({ rating: 5 });
+    assert.equal(review.status, 403);
+    const login = await api().post('/api/auth/login').send({ email: 'demo@streambox.test', password: 'anything-at-all' });
+    assert.equal(login.status, 401);
+  });
+
   it('protects admin routes', async () => {
     const { auth } = await makeUser();
     const noAuth = await api().post('/api/titles').send({});

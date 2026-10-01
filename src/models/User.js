@@ -5,7 +5,8 @@ const userSchema = new Schema(
     email: { type: String, required: true, trim: true, lowercase: true, maxlength: 254 },
     name: { type: String, required: true, trim: true, maxlength: 60 },
     passwordHash: { type: String, required: true, select: false },
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    // 'demo' is the shared guest account behind the "Try the demo" button.
+    role: { type: String, enum: ['user', 'admin', 'demo'], default: 'user' },
   },
   { timestamps: true }
 );

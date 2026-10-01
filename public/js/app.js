@@ -44,10 +44,24 @@ const App = (() => {
     document.body.classList.toggle('signed-in', Boolean(s));
     document.body.classList.toggle('is-admin', s?.user.role === 'admin');
     const account = document.getElementById('account');
-    account.innerHTML = s
-      ? `<span class="who">${UI.esc(s.user.name)}</span><button class="btn small" id="logout">Sign out</button>`
-      : '<a class="btn small primary" href="#/login">Sign in</a>';
+    if (!s) {
+      account.innerHTML = '<button class="btn small ghost" id="demo-btn">Try the demo</button><a class="btn small primary" href="#/login">Sign in</a>';
+    } else if (Api.isGuest) {
+      account.innerHTML = '<span class="guest-chip" title="Shared demo account">Guest</span>'
+        + '<a class="btn small primary" href="#/register"><span class="long">Create account</span><span class="short">Sign up</span></a>'
+        + '<button class="btn small ghost" id="logout">Exit</button>';
+    } else {
+      account.innerHTML = `<span class="who">${UI.esc(s.user.name)}</span><button class="btn small" id="logout">Sign out</button>`;
+    }
     document.getElementById('logout')?.addEventListener('click', () => { Api.logout(); location.hash = '#/'; });
+    document.getElementById('demo-btn')?.addEventListener('click', async (e) => {
+      e.currentTarget.disabled = true;
+      try {
+        await Api.demo();
+        UI.toast('Welcome! You’re exploring StreamBox as a guest.');
+        render();
+      } catch (err) { UI.toast(err.message, true); paintAccount(); }
+    });
   }
 
   document.getElementById('search-form').addEventListener('submit', (e) => {

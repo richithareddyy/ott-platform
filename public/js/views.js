@@ -8,6 +8,22 @@ const Views = (() => {
     return false;
   };
 
+  // Signed-out visitors are moved into the shared guest account instead of
+  // hitting a sign-in wall, so Play and My List just work.
+  async function ensureSession() {
+    if (Api.session) return true;
+    try {
+      await Api.demo();
+      UI.toast('You’re exploring as a guest. Create an account anytime to keep your own list.');
+      return true;
+    } catch {
+      return requireLogin();
+    }
+  }
+
+  const guestNote = (what) =>
+    `<p class="guest-note">Guests can browse, play, and use My List. <a href="#/register?next=${encodeURIComponent(location.hash.slice(1))}">Create a free account</a> to ${what}.</p>`;
+
   /* ------------------------------ Home ------------------------------ */
   async function home() {
     const [{ featured, rows }, cont] = await Promise.all([
@@ -122,7 +138,7 @@ const Views = (() => {
 
           <section class="reviews">
             <h2>Reviews</h2>
-            ${Api.session ? `<form class="review" id="review-form">
+            ${Api.isGuest ? guestNote('rate and review titles') : Api.session ? `<form class="review" id="review-form">
               <strong>${viewer?.myReview ? 'Your review' : 'Rate this title'}</strong>
               <div class="star-input" id="star-input">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div>
               <div class="field"><textarea name="body" maxlength="2000" placeholder="What did you think? (optional)">${esc(viewer?.myReview?.body || '')}</textarea></div>
@@ -142,11 +158,13 @@ const Views = (() => {
     const paintList = () => { listBtn.textContent = inList ? '✓ In My List' : '+ My List'; };
     paintList();
     listBtn.addEventListener('click', async () => {
-      if (!requireLogin()) return;
       listBtn.disabled = true;
+      const wasSignedOut = !Api.session;
+      if (!(await ensureSession())) return;
       try {
         if (inList) await Api.removeFromWatchlist(id); else await Api.addToWatchlist(id);
         inList = !inList;
+        if (wasSignedOut) return App.render(); // refresh viewer-specific sections for the new guest session
         paintList();
         UI.toast(inList ? 'Added to My List' : 'Removed from My List');
       } catch (e) { UI.toast(e.message, true); } finally { listBtn.disabled = false; }
@@ -191,7 +209,7 @@ const Views = (() => {
 
   /* ----------------------------- Player ----------------------------- */
   async function watch(_params, id) {
-    if (!requireLogin()) return;
+    if (!(await ensureSession())) return;
     const [{ title: t }, play] = await Promise.all([Api.title(id), Api.play(id)]);
     view().innerHTML = `
       <div class="player-wrap">
@@ -227,10 +245,11 @@ const Views = (() => {
 
   /* ----------------------------- My List ---------------------------- */
   async function myList() {
-    if (!requireLogin()) return;
+    if (!(await ensureSession())) return;
     const { items } = await Api.watchlist();
     view().innerHTML = `
       <h1>My List</h1>
+      ${Api.isGuest ? guestNote('keep a list that’s only yours') : ''}
       ${items.length ? `<div class="grid">${items.map((t) => UI.card(t)).join('')}</div>`
         : '<p class="empty">Your list is empty. Use “+ My List” on any title to save it here.</p>'}`;
   }
@@ -252,7 +271,18 @@ const Views = (() => {
             ? `New here? <a href="#/register?next=${encodeURIComponent(next)}"><u>Create an account</u></a>`
             : `Already have an account? <a href="#/login?next=${encodeURIComponent(next)}"><u>Sign in</u></a>`}</p>
         </form>
+        ${Api.isGuest ? '' : `<div class="divider"><span>or</span></div>
+        <button class="btn block" id="guest-btn">Continue as guest</button>
+        <p class="muted small-print">No sign-up needed. Explore with a shared demo account.</p>`}
       </div>`;
+    document.getElementById('guest-btn')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await Api.demo();
+        location.hash = `#${next.startsWith('/') ? next : '/'}`;
+      } catch (err) { UI.toast(err.message, true); btn.disabled = false; }
+    });
     const form = document.getElementById('auth-form');
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

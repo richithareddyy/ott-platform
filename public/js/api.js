@@ -50,6 +50,8 @@ const Api = (() => {
   return {
     ApiError,
     get session() { return session; },
+    get isGuest() { return session?.user.role === 'demo'; },
+    async demo() { setSession(await request('POST', '/auth/demo')); },
     async login(email, password) { setSession(await request('POST', '/auth/login', { email, password })); },
     async register(name, email, password) { setSession(await request('POST', '/auth/register', { name, email, password })); },
     logout() { setSession(null); },
