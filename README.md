@@ -1,8 +1,18 @@
-# StreamBox: Web-Based OTT Platform
+# StreamBox · OTT Platform
 
-A full-stack video streaming platform built with **Node.js, Express.js, MongoDB, and vanilla JavaScript**. Viewers can browse and search a catalog, keep a watchlist, stream video with seeking and resume, and rate and review titles. Admins manage the catalog.
+A web-based video streaming project with catalog browsing, search, watchlists, playback progress, ratings, and an admin interface. Built with **Node.js, Express, MongoDB, and vanilla JavaScript**.
 
-The backend is a REST API designed around MongoDB schemas that stay correct under high concurrency: simultaneous clicks, player heartbeats arriving out of order, and many users reviewing the same title at once.
+[Getting started](#getting-started) · [Features](#features) · [REST API](#rest-api) · [Database design](#schema-design-and-concurrency) · [Load test](#load-test)
+
+## At a glance
+
+| Viewers | Administrators | Backend |
+| --- | --- | --- |
+| Browse titles, manage a watchlist, resume playback, and write reviews | Create and edit catalog entries with version checks | REST API, indexed MongoDB collections, and HTTP range streaming |
+
+**Demo scope:** Guest access uses a shared account and cannot post public reviews. Video files are not included; playback requires media supplied by the person running the app.
+
+The backend handles duplicate list entries, out-of-order playback updates, and conflicting catalog edits. The database design and load-test sections explain these mechanisms and their evaluation.
 
 ## Features
 
@@ -33,6 +43,8 @@ The backend is a REST API designed around MongoDB schemas that stay correct unde
 Prerequisites: Node.js 20.12 or newer, and Docker (for MongoDB).
 
 ```bash
+git clone https://github.com/richithareddyy/ott-platform.git
+cd ott-platform
 cp .env.example .env         # then set JWT_SECRET and the seed passwords
 docker compose up -d --wait  # starts MongoDB on port 27017
 npm install
@@ -68,6 +80,8 @@ The app deploys as a single Docker web service with a hosted MongoDB database.
 Free Render services sleep when idle, so the first request after a pause can take up to a minute.
 
 ## Scripts
+
+`npm run seed` resets the target database before loading sample data. Use it only with a database intended for this demo.
 
 | Command | Description |
 |---|---|
