@@ -1,6 +1,6 @@
 /* Page views. Each view renders into #view and may return a cleanup function. */
 const Views = (() => {
-  const { esc } = UI;
+  const { esc, icon } = UI;
   const view = () => document.getElementById('view');
   const requireLogin = () => {
     if (Api.session) return true;
@@ -14,42 +14,67 @@ const Views = (() => {
     if (Api.session) return true;
     try {
       await Api.demo();
-      UI.toast('You’re exploring as a guest. Create an account anytime to keep your own list.');
+      UI.toast('You’re browsing as a guest. Create an account anytime to keep your own list.');
       return true;
     } catch {
       return requireLogin();
     }
   }
 
+  async function startDemo(btn) {
+    if (btn) btn.disabled = true;
+    try {
+      await Api.demo();
+      UI.toast('You’re browsing as a guest.');
+      App.render();
+    } catch (err) {
+      UI.toast(err.message, true);
+      if (btn) btn.disabled = false;
+    }
+  }
+
   const guestNote = (what) =>
-    `<p class="guest-note">Guests can browse, play, and use My List. <a href="#/register?next=${encodeURIComponent(location.hash.slice(1))}">Create a free account</a> to ${what}.</p>`;
+    `<p class="note">You’re using the shared guest account. <a href="#/register?next=${encodeURIComponent(location.hash.slice(1))}">Create a free account</a> to ${what}.</p>`;
+
+  const pageHead = (title, sub = '') => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</header>`;
 
   /* ------------------------------ Home ------------------------------ */
   async function home() {
-    const [{ featured, rows }, cont] = await Promise.all([
+    const [{ featured, rows }, cont, popular, top] = await Promise.all([
       Api.rows(),
       Api.session ? Api.continueWatching().catch(() => ({ items: [] })) : { items: [] },
+      Api.listTitles({ sort: 'popular', limit: 16 }),
+      Api.listTitles({ sort: 'top', limit: 16 }),
     ]);
     const hero = featured[0];
     view().innerHTML = `
-      ${hero ? `<section class="hero" style="--h:${Number(hero.posterHue) || 210}">
-        <div>
-          <div class="eyebrow">Featured</div>
-          <h1>${esc(hero.name)}</h1>
-          <p>${esc(hero.synopsis)}</p>
-          <div class="muted">${esc(hero.releaseYear)} · ${esc(hero.maturityRating)} · ${esc(hero.genres.join(', '))}</div>
+      ${!Api.session ? `<div class="visitor-bar"><div class="page">
+        <span>StreamBox is a portfolio project by ${esc(SITE.author)}.</span>
+        <button class="link-btn" data-start-demo>Explore as a guest</button>
+        <span class="muted">No account needed</span>
+        <a class="muted push" href="${esc(SITE.github)}" target="_blank" rel="noopener">Source on GitHub</a>
+      </div></div>` : ''}
+      ${hero ? `<section class="hero">
+        ${UI.backdrop(hero)}
+        <div class="page hero-body">
+          <p class="kicker">Featured ${UI.kind(hero).toLowerCase()}</p>
+          <h1 class="display">${esc(hero.name)}</h1>
+          <p class="facts">${UI.facts(hero)}<span class="dot">·</span>${esc(hero.genres.join(', '))}${hero.ratingCount ? `<span class="dot">·</span>${UI.rating(hero)}` : ''}</p>
+          <p class="synopsis">${esc(hero.synopsis)}</p>
           <div class="actions">
-            <a class="btn primary" href="#/watch/${esc(hero._id)}">▶ Play</a>
-            <a class="btn" href="#/title/${esc(hero._id)}">More info</a>
+            <a class="btn primary" href="#/watch/${esc(hero._id)}">${icon.play}Play</a>
+            <a class="btn secondary" href="#/title/${esc(hero._id)}">${icon.info}More info</a>
           </div>
         </div>
-        ${UI.poster(hero)}
       </section>` : ''}
-      ${UI.row('Continue watching', cont.items, { progress: true })}
-      ${UI.row('Featured', featured)}
-      ${rows.map((r) => UI.row(r.genre, r.titles, { href: `#/browse?genre=${encodeURIComponent(r.genre)}` })).join('')}
-      ${!featured.length && !rows.length ? '<div class="center"><h2>No titles yet</h2><p class="muted">Run <code>npm run seed</code> to load the sample catalog.</p></div>' : ''}
-    `;
+      <div class="page rows">
+        ${UI.row('Continue watching', cont.items, { progress: true })}
+        ${UI.row('Most watched', popular.items, { href: '#/browse?sort=popular' })}
+        ${UI.row('Highest rated', top.items, { href: '#/browse?sort=top' })}
+        ${rows.map((r) => UI.row(r.genre, r.titles, { href: `#/browse?genre=${encodeURIComponent(r.genre)}` })).join('')}
+        ${!featured.length && !rows.length ? '<div class="state"><h2>No titles yet</h2><p>Run <code>npm run seed</code> to load the sample catalog.</p></div>' : ''}
+      </div>`;
+    view().querySelector('[data-start-demo]')?.addEventListener('click', (e) => startDemo(e.currentTarget));
   }
 
   /* ----------------------------- Browse ----------------------------- */
@@ -57,18 +82,19 @@ const Views = (() => {
     const { genres } = await Api.genres();
     const state = { genre: params.get('genre') || '', type: params.get('type') || '', sort: params.get('sort') || 'popular' };
     const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
-    view().innerHTML = `
-      <h1>Browse</h1>
-      <form class="toolbar" id="filters">
-        <div class="field"><label for="f-genre">Genre</label>
-          <select id="f-genre" name="genre">${opt('', 'All genres', state.genre)}${genres.map((g) => opt(g, g, state.genre)).join('')}</select></div>
-        <div class="field"><label for="f-type">Type</label>
-          <select id="f-type" name="type">${opt('', 'Movies & series', state.type)}${opt('movie', 'Movies', state.type)}${opt('series', 'Series', state.type)}</select></div>
-        <div class="field"><label for="f-sort">Sort by</label>
-          <select id="f-sort" name="sort">${opt('popular', 'Most popular', state.sort)}${opt('newest', 'Newest', state.sort)}${opt('top', 'Top rated', state.sort)}</select></div>
+    view().innerHTML = `<div class="page">
+      ${pageHead(state.genre ? esc(state.genre) : 'Browse')}
+      <form class="filters" id="filters" aria-label="Filter titles">
+        <label class="select"><span>Genre</span>
+          <select name="genre">${opt('', 'All', state.genre)}${genres.map((g) => opt(g, g, state.genre)).join('')}</select></label>
+        <label class="select"><span>Type</span>
+          <select name="type">${opt('', 'Films & series', state.type)}${opt('movie', 'Films', state.type)}${opt('series', 'Series', state.type)}</select></label>
+        <label class="select"><span>Sort</span>
+          <select name="sort">${opt('popular', 'Most watched', state.sort)}${opt('newest', 'Newest', state.sort)}${opt('top', 'Highest rated', state.sort)}</select></label>
       </form>
       <div class="grid" id="results"></div>
-      <div class="center" id="more-wrap"></div>`;
+      <div class="more" id="more-wrap"></div>
+    </div>`;
 
     document.getElementById('filters').addEventListener('change', (e) => {
       const data = new URLSearchParams([...new FormData(e.currentTarget)].filter(([, v]) => v));
@@ -79,12 +105,12 @@ const Views = (() => {
     const moreWrap = document.getElementById('more-wrap');
     let cursor = null;
     async function loadPage() {
-      moreWrap.innerHTML = UI.spinner();
+      moreWrap.innerHTML = '<span class="loading-dots" aria-label="Loading"></span>';
       const page = await Api.listTitles({ ...state, cursor, limit: 24 });
       results.insertAdjacentHTML('beforeend', page.items.map((t) => UI.card(t)).join(''));
       cursor = page.nextCursor;
-      if (!results.children.length) moreWrap.innerHTML = '<p class="empty">No titles match these filters.</p>';
-      else moreWrap.innerHTML = cursor ? '<button class="btn" id="more">Load more</button>' : '';
+      if (!results.children.length) moreWrap.innerHTML = '<div class="state"><h2>Nothing here yet</h2><p>No titles match these filters.</p><a class="btn" href="#/browse">Clear filters</a></div>';
+      else moreWrap.innerHTML = cursor ? '<button class="btn secondary" id="more">Show more</button>' : '';
       document.getElementById('more')?.addEventListener('click', () => loadPage().catch((e) => UI.toast(e.message, true)));
     }
     await loadPage();
@@ -94,19 +120,31 @@ const Views = (() => {
   async function search(params) {
     const q = (params.get('q') || '').trim();
     document.getElementById('search-input').value = q;
-    if (!q) { view().innerHTML = '<div class="center"><h2>Search the catalog</h2><p class="muted">Try a title, genre word, or cast name.</p></div>'; return; }
     const page = Number(params.get('page')) || 1;
-    const data = await Api.search(q, page);
+    const data = q ? await Api.search(q, page) : null;
     const link = (p) => `#/search?q=${encodeURIComponent(q)}&page=${p}`;
-    view().innerHTML = `
-      <h1>Results for “${esc(q)}”</h1>
-      <p class="muted">${data.total} title${data.total === 1 ? '' : 's'} found</p>
-      ${data.items.length ? `<div class="grid">${data.items.map((t) => UI.card(t)).join('')}</div>` : '<p class="empty">No matches. Check the spelling or try a different word.</p>'}
-      ${data.pages > 1 ? `<div class="center">
-        ${page > 1 ? `<a class="btn" href="${link(page - 1)}">← Previous</a>` : ''}
-        <span class="muted">&nbsp;Page ${page} of ${data.pages}&nbsp;</span>
-        ${page < data.pages ? `<a class="btn" href="${link(page + 1)}">Next →</a>` : ''}
-      </div>` : ''}`;
+    view().innerHTML = `<div class="page">
+      <form class="search-page" id="search-page" role="search">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+        <input type="search" name="q" value="${esc(q)}" placeholder="Search titles, people, genres" aria-label="Search" maxlength="100" autocomplete="off" />
+      </form>
+      ${!q ? '<div class="state"><h2>Find something to watch</h2><p>Search by title, cast member, or a word from the story.</p></div>' : `
+        <p class="result-count">${data.total} result${data.total === 1 ? '' : 's'} for “${esc(q)}”</p>
+        ${data.items.length ? `<div class="grid">${data.items.map((t) => UI.card(t)).join('')}</div>`
+          : '<div class="state"><h2>No matches</h2><p>Check the spelling, or try a cast name or a single word.</p></div>'}
+        ${data.pages > 1 ? `<nav class="pager" aria-label="Pages">
+          ${page > 1 ? `<a class="btn secondary" href="${link(page - 1)}">Previous</a>` : '<span></span>'}
+          <span class="muted">Page ${page} of ${data.pages}</span>
+          ${page < data.pages ? `<a class="btn secondary" href="${link(page + 1)}">Next</a>` : '<span></span>'}
+        </nav>` : ''}`}
+    </div>`;
+    const form = document.getElementById('search-page');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const next = form.q.value.trim();
+      if (next) location.hash = `#/search?q=${encodeURIComponent(next)}`;
+    });
+    if (!q && window.matchMedia('(max-width: 760px)').matches) form.q.focus();
   }
 
   /* -------------------------- Title detail -------------------------- */
@@ -117,45 +155,53 @@ const Views = (() => {
     const resume = viewer?.progress && !viewer.progress.completed && viewer.progress.positionSeconds > 5;
 
     view().innerHTML = `
-      <div class="detail">
-        ${UI.poster(t)}
-        <div>
-          <div class="eyebrow">${t.type === 'series' ? 'Series' : 'Movie'}</div>
-          <h1>${esc(t.name)}</h1>
-          <div class="facts">
-            <span>${esc(t.releaseYear)}</span><span>${esc(t.maturityRating)}</span>
-            <span>${esc(UI.fmtDuration(t.durationMinutes))}${t.type === 'series' ? ' per episode' : ''}</span>
-            <span>${t.ratingCount ? `<span class="stars">★</span> ${t.ratingAvg.toFixed(1)} (${t.ratingCount})` : 'No ratings yet'}</span>
-            <span>${t.viewCount.toLocaleString()} views</span>
+      <section class="detail-head">
+        ${UI.backdrop(t)}
+        <div class="page detail-inner">
+          <div class="detail-poster">${UI.poster(t)}</div>
+          <div class="detail-info">
+            <p class="kicker">${UI.kind(t)}</p>
+            <h1 class="display">${esc(t.name)}</h1>
+            <p class="facts">${UI.facts(t)}${t.ratingCount ? `<span class="dot">·</span>${UI.rating(t)}<span class="muted-count">(${t.ratingCount})</span>` : ''}</p>
+            <div class="actions">
+              <a class="btn primary" href="#/watch/${esc(t._id)}">${icon.play}${resume ? 'Resume' : 'Play'}</a>
+              <button class="btn secondary" id="list-btn"></button>
+            </div>
+            <p class="synopsis">${esc(t.synopsis)}</p>
+            <dl class="credits">
+              ${t.cast.length ? `<div><dt>Starring</dt><dd>${esc(t.cast.join(', '))}</dd></div>` : ''}
+              <div><dt>Genres</dt><dd>${t.genres.map((g) => `<a href="#/browse?genre=${encodeURIComponent(g)}">${esc(g)}</a>`).join(', ')}</dd></div>
+              <div><dt>Views</dt><dd>${t.viewCount.toLocaleString()}</dd></div>
+            </dl>
           </div>
-          <div>${t.genres.map((g) => `<a class="chip" href="#/browse?genre=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}</div>
-          <p>${esc(t.synopsis)}</p>
-          ${t.cast.length ? `<p class="muted">Starring: ${esc(t.cast.join(', '))}</p>` : ''}
-          <div class="actions">
-            <a class="btn primary" href="#/watch/${esc(t._id)}">▶ ${resume ? 'Resume' : 'Play'}</a>
-            <button class="btn" id="list-btn"></button>
-          </div>
-
-          <section class="reviews">
-            <h2>Reviews</h2>
-            ${Api.isGuest ? guestNote('rate and review titles') : Api.session ? `<form class="review" id="review-form">
-              <strong>${viewer?.myReview ? 'Your review' : 'Rate this title'}</strong>
-              <div class="star-input" id="star-input">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div>
-              <div class="field"><textarea name="body" maxlength="2000" placeholder="What did you think? (optional)">${esc(viewer?.myReview?.body || '')}</textarea></div>
-              <p class="error-text"></p>
-              <div class="actions" style="margin:0">
-                <button class="btn primary small">Save review</button>
-                ${viewer?.myReview ? '<button type="button" class="btn small danger" id="delete-review">Delete</button>' : ''}
-              </div>
-            </form>` : `<p class="muted"><a href="#/login?next=${encodeURIComponent(`/title/${t._id}`)}"><u>Sign in</u></a> to rate and review.</p>`}
-            <div id="review-list"></div>
-            <div id="review-more"></div>
-          </section>
         </div>
-      </div>`;
+      </section>
+
+      <section class="page reviews">
+        <div class="reviews-summary">
+          <h2>Ratings &amp; reviews</h2>
+          ${t.ratingCount
+            ? `<p class="score"><strong>${t.ratingAvg.toFixed(1)}</strong><span>out of 5</span></p><p class="muted">${t.ratingCount} rating${t.ratingCount === 1 ? '' : 's'}</p>`
+            : '<p class="muted">No ratings yet.</p>'}
+          ${Api.isGuest ? guestNote('rate and review titles') : Api.session ? `<form class="review-form" id="review-form">
+            <p class="label">${viewer?.myReview ? 'Your review' : 'Rate this title'}</p>
+            <div class="star-input" id="star-input">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div>
+            <textarea name="body" maxlength="2000" placeholder="What did you think? (optional)" aria-label="Review">${esc(viewer?.myReview?.body || '')}</textarea>
+            <p class="error-text"></p>
+            <div class="form-actions">
+              <button class="btn primary small">Save review</button>
+              ${viewer?.myReview ? '<button type="button" class="btn text small" id="delete-review">Delete</button>' : ''}
+            </div>
+          </form>` : `<p class="muted"><a class="text-link" href="#/login?next=${encodeURIComponent(`/title/${t._id}`)}">Sign in</a> to rate and review.</p>`}
+        </div>
+        <div class="reviews-list">
+          <div id="review-list"></div>
+          <div id="review-more"></div>
+        </div>
+      </section>`;
 
     const listBtn = document.getElementById('list-btn');
-    const paintList = () => { listBtn.textContent = inList ? '✓ In My List' : '+ My List'; };
+    const paintList = () => { listBtn.innerHTML = inList ? `${icon.check}In My List` : `${icon.plus}My List`; };
     paintList();
     listBtn.addEventListener('click', async () => {
       listBtn.disabled = true;
@@ -175,12 +221,11 @@ const Views = (() => {
     const renderReviews = (page) => {
       reviewList.insertAdjacentHTML('beforeend', page.items.map((r) => `
         <article class="review">
-          <header><strong>${esc(r.userName)}</strong><span class="stars" aria-label="${r.rating} out of 5">${UI.stars(r.rating)}</span></header>
-          ${r.body ? `<p style="margin:0">${esc(r.body)}</p>` : ''}
-          <small class="muted">${new Date(r.createdAt).toLocaleDateString()}</small>
+          <header><strong>${esc(r.userName)}</strong><span class="stars" aria-label="${r.rating} out of 5">${UI.stars(r.rating)}</span><time>${new Date(r.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</time></header>
+          ${r.body ? `<p>${esc(r.body)}</p>` : ''}
         </article>`).join(''));
-      if (!reviewList.children.length) reviewList.innerHTML = '<p class="empty">No reviews yet.</p>';
-      reviewMore.innerHTML = page.nextCursor ? '<button class="btn small">More reviews</button>' : '';
+      if (!reviewList.children.length) reviewList.innerHTML = '<p class="muted">No written reviews yet.</p>';
+      reviewMore.innerHTML = page.nextCursor ? '<button class="btn text small">More reviews</button>' : '';
       reviewMore.querySelector('button')?.addEventListener('click', async () => renderReviews(await Api.reviews(id, page.nextCursor)));
     };
     renderReviews(reviews);
@@ -211,16 +256,20 @@ const Views = (() => {
   async function watch(_params, id) {
     if (!(await ensureSession())) return;
     const [{ title: t }, play] = await Promise.all([Api.title(id), Api.play(id)]);
-    view().innerHTML = `
-      <div class="player-wrap">
-        <p><a class="muted" href="#/title/${esc(t._id)}">← Back to details</a></p>
+    view().innerHTML = `<div class="page player-page">
+      <a class="back" href="#/title/${esc(t._id)}">${icon.chevL}${esc(t.name)}</a>
+      <div class="player">
         ${play.streamUrl
           ? `<video id="player" controls autoplay playsinline preload="metadata" src="${esc(play.streamUrl)}"></video>`
-          : `<div class="player-empty"><div><h2>No video file for this title</h2>
-              <p class="muted">Place an MP4 in the <code>media/</code> folder and set it as this title's video file in Admin.</p></div></div>`}
-        <h1 style="margin-top:16px">${esc(t.name)}</h1>
-        <p class="muted">${esc(t.synopsis)}</p>
-      </div>`;
+          : `${UI.backdrop(t)}<div class="player-empty"><p class="label">Video unavailable</p>
+              <p>This demo title has no video file. Add an MP4 to <code>media/</code> and assign it in Admin to enable playback.</p></div>`}
+      </div>
+      <div class="player-info">
+        <h1>${esc(t.name)}</h1>
+        <p class="facts">${UI.facts(t)}</p>
+        <p class="synopsis">${esc(t.synopsis)}</p>
+      </div>
+    </div>`;
 
     const video = document.getElementById('player');
     if (!video) return;
@@ -247,34 +296,33 @@ const Views = (() => {
   async function myList() {
     if (!(await ensureSession())) return;
     const { items } = await Api.watchlist();
-    view().innerHTML = `
-      <h1>My List</h1>
+    view().innerHTML = `<div class="page">
+      ${pageHead('My List', items.length ? `${items.length} title${items.length === 1 ? '' : 's'}` : '')}
       ${Api.isGuest ? guestNote('keep a list that’s only yours') : ''}
       ${items.length ? `<div class="grid">${items.map((t) => UI.card(t)).join('')}</div>`
-        : '<p class="empty">Your list is empty. Use “+ My List” on any title to save it here.</p>'}`;
+        : '<div class="state"><h2>Your list is empty</h2><p>Use My List on any title to save it here.</p><a class="btn secondary" href="#/browse">Browse titles</a></div>'}
+    </div>`;
   }
 
   /* ------------------------------ Auth ------------------------------ */
   function authForm(params, mode) {
     const next = params.get('next') || '/';
     const isLogin = mode === 'login';
-    view().innerHTML = `
-      <div class="auth-card">
-        <h1>${isLogin ? 'Sign in' : 'Create account'}</h1>
-        <form class="form" id="auth-form" novalidate>
-          ${isLogin ? '' : '<div class="field"><label for="a-name">Name</label><input id="a-name" name="name" autocomplete="name" required maxlength="60" /></div>'}
-          <div class="field"><label for="a-email">Email</label><input id="a-email" name="email" type="email" autocomplete="email" required /></div>
-          <div class="field"><label for="a-pass">Password</label><input id="a-pass" name="password" type="password" autocomplete="${isLogin ? 'current-password' : 'new-password'}" required minlength="8" /></div>
-          <p class="error-text"></p>
-          <button class="btn primary">${isLogin ? 'Sign in' : 'Create account'}</button>
-          <p class="muted">${isLogin
-            ? `New here? <a href="#/register?next=${encodeURIComponent(next)}"><u>Create an account</u></a>`
-            : `Already have an account? <a href="#/login?next=${encodeURIComponent(next)}"><u>Sign in</u></a>`}</p>
-        </form>
-        ${Api.isGuest ? '' : `<div class="divider"><span>or</span></div>
-        <button class="btn block" id="guest-btn">Continue as guest</button>
-        <p class="muted small-print">No sign-up needed. Explore with a shared demo account.</p>`}
-      </div>`;
+    view().innerHTML = `<div class="page auth">
+      <h1>${isLogin ? 'Sign in' : 'Create your account'}</h1>
+      <form class="form" id="auth-form" novalidate>
+        ${isLogin ? '' : '<div class="field"><label for="a-name">Name</label><input id="a-name" name="name" autocomplete="name" required maxlength="60" /></div>'}
+        <div class="field"><label for="a-email">Email</label><input id="a-email" name="email" type="email" autocomplete="email" required /></div>
+        <div class="field"><label for="a-pass">Password</label><input id="a-pass" name="password" type="password" autocomplete="${isLogin ? 'current-password' : 'new-password'}" required minlength="8" />${isLogin ? '' : '<small>At least 8 characters.</small>'}</div>
+        <p class="error-text"></p>
+        <button class="btn primary block">${isLogin ? 'Sign in' : 'Create account'}</button>
+      </form>
+      <p class="muted switch">${isLogin
+        ? `New to StreamBox? <a class="text-link" href="#/register?next=${encodeURIComponent(next)}">Create an account</a>`
+        : `Already have an account? <a class="text-link" href="#/login?next=${encodeURIComponent(next)}">Sign in</a>`}</p>
+      ${Api.isGuest ? '' : `<div class="divider"><span>or</span></div>
+      <button class="btn secondary block" id="guest-btn">Continue as guest</button>`}
+    </div>`;
     document.getElementById('guest-btn')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
@@ -299,26 +347,24 @@ const Views = (() => {
   /* ------------------------------ Admin ----------------------------- */
   async function admin(params) {
     if (!requireLogin()) return;
-    if (Api.session.user.role !== 'admin') { view().innerHTML = '<div class="center"><h2>Admins only</h2></div>'; return; }
+    if (Api.session.user.role !== 'admin') { view().innerHTML = '<div class="page"><div class="state"><h2>Admins only</h2><p>This area is for catalog administrators.</p></div></div>'; return; }
     const editId = params.get('edit');
     if (editId || params.has('new')) return adminForm(editId);
 
     const sort = params.get('sort') || 'newest';
     const { items, nextCursor } = await Api.listTitles({ sort, limit: 50 });
-    view().innerHTML = `
-      <div class="toolbar" style="justify-content:space-between">
-        <h1 style="margin:0">Manage titles</h1>
-        <a class="btn primary" href="#/admin?new=1">+ New title</a>
-      </div>
+    view().innerHTML = `<div class="page">
+      <header class="page-head split"><h1>Catalog</h1><a class="btn primary small" href="#/admin?new=1">${icon.plus}New title</a></header>
       <div class="table-wrap"><table>
-        <thead><tr><th>Name</th><th>Type</th><th>Year</th><th>Genres</th><th>Views</th><th>Rating</th><th></th></tr></thead>
+        <thead><tr><th>Title</th><th>Type</th><th>Year</th><th>Genres</th><th class="num">Views</th><th class="num">Rating</th><th></th></tr></thead>
         <tbody>${items.map((t) => `<tr>
-          <td><a href="#/title/${esc(t._id)}">${esc(t.name)}</a></td><td>${esc(t.type)}</td><td>${esc(t.releaseYear)}</td>
-          <td>${esc(t.genres.join(', '))}</td><td>${t.viewCount.toLocaleString()}</td><td>${esc(UI.fmtRating(t))}</td>
-          <td><a class="btn small" href="#/admin?edit=${esc(t._id)}">Edit</a><button class="btn small danger" data-del="${esc(t._id)}" data-name="${esc(t.name)}">Delete</button></td>
+          <td><a href="#/title/${esc(t._id)}">${esc(t.name)}</a></td><td>${esc(UI.kind(t))}</td><td>${esc(t.releaseYear)}</td>
+          <td class="muted">${esc(t.genres.join(', '))}</td><td class="num">${t.viewCount.toLocaleString()}</td><td class="num">${t.ratingCount ? t.ratingAvg.toFixed(1) : '–'}</td>
+          <td class="row-actions"><a class="btn text small" href="#/admin?edit=${esc(t._id)}">Edit</a><button class="btn text small danger" data-del="${esc(t._id)}" data-name="${esc(t.name)}">Delete</button></td>
         </tr>`).join('')}</tbody>
       </table></div>
-      ${nextCursor ? '<p class="muted">Showing the 50 most recent releases. Use Search to find others.</p>' : ''}`;
+      ${nextCursor ? '<p class="muted small">Showing the 50 most recent releases. Use Search to find others.</p>' : ''}
+    </div>`;
 
     view().querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
       if (!confirm(`Delete “${b.dataset.name}”? Reviews, watchlist entries and progress for it are removed too.`)) return;
@@ -329,25 +375,26 @@ const Views = (() => {
   async function adminForm(editId) {
     const [{ genres, maturityRatings }, existing] = await Promise.all([Api.genres(), editId ? Api.title(editId) : null]);
     const t = existing?.title || { type: 'movie', genres: [], cast: [], posterHue: Math.floor(Math.random() * 360), featured: false };
-    const sel = (name, values, cur) => `<select name="${name}" id="t-${name}" required>${values.map((v) => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
-    view().innerHTML = `
-      <p><a class="muted" href="#/admin">← All titles</a></p>
-      <h1>${editId ? `Edit “${esc(t.name)}”` : 'New title'}</h1>
+    const sel = (name, values, cur, labels = {}) => `<select name="${name}" id="t-${name}" required>${values.map((v) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(labels[v] || v)}</option>`).join('')}</select>`;
+    view().innerHTML = `<div class="page narrow">
+      <a class="back" href="#/admin">${icon.chevL}Catalog</a>
+      ${pageHead(editId ? `Edit ${esc(t.name)}` : 'New title')}
       <form class="form wide" id="title-form">
-        <div class="field full"><label for="t-name">Name</label><input id="t-name" name="name" required maxlength="120" value="${esc(t.name)}" /></div>
-        <div class="field"><label for="t-type">Type</label>${sel('type', ['movie', 'series'], t.type)}</div>
+        <div class="field full"><label for="t-name">Title</label><input id="t-name" name="name" required maxlength="120" value="${esc(t.name)}" /></div>
+        <div class="field"><label for="t-type">Type</label>${sel('type', ['movie', 'series'], t.type, { movie: 'Film', series: 'Series' })}</div>
         <div class="field"><label for="t-maturityRating">Maturity rating</label>${sel('maturityRating', maturityRatings, t.maturityRating)}</div>
         <div class="field"><label for="t-releaseYear">Release year</label><input id="t-releaseYear" name="releaseYear" type="number" min="1900" max="2100" required value="${esc(t.releaseYear)}" /></div>
-        <div class="field"><label for="t-durationMinutes">Duration (minutes)</label><input id="t-durationMinutes" name="durationMinutes" type="number" min="1" max="1000" required value="${esc(t.durationMinutes)}" /></div>
-        <div class="field full"><label>Genres (1–4)</label><div>${genres.map((g) => `<label class="check" style="display:inline-flex;margin:0 14px 6px 0"><input type="checkbox" name="genres" value="${esc(g)}" ${t.genres.includes(g) ? 'checked' : ''} /> ${esc(g)}</label>`).join('')}</div></div>
+        <div class="field"><label for="t-durationMinutes">Runtime (minutes)</label><input id="t-durationMinutes" name="durationMinutes" type="number" min="1" max="1000" required value="${esc(t.durationMinutes)}" /></div>
+        <fieldset class="field full"><legend>Genres (1–4)</legend><div class="checks">${genres.map((g) => `<label class="check"><input type="checkbox" name="genres" value="${esc(g)}" ${t.genres.includes(g) ? 'checked' : ''} /> ${esc(g)}</label>`).join('')}</div></fieldset>
         <div class="field full"><label for="t-synopsis">Synopsis</label><textarea id="t-synopsis" name="synopsis" required maxlength="1000">${esc(t.synopsis)}</textarea></div>
-        <div class="field full"><label for="t-cast">Cast (comma-separated)</label><input id="t-cast" name="cast" value="${esc(t.cast.join(', '))}" /></div>
-        <div class="field"><label for="t-videoFile">Video file in media/</label><input id="t-videoFile" name="videoFile" placeholder="example.mp4" value="${esc(t.videoFile)}" /></div>
-        <div class="field"><label for="t-posterHue">Poster colour (0–359)</label><input id="t-posterHue" name="posterHue" type="number" min="0" max="359" value="${esc(t.posterHue)}" /></div>
-        <label class="check full"><input type="checkbox" name="featured" ${t.featured ? 'checked' : ''} /> Featured on the home page</label>
+        <div class="field full"><label for="t-cast">Cast</label><input id="t-cast" name="cast" value="${esc(t.cast.join(', '))}" /><small>Separate names with commas.</small></div>
+        <div class="field"><label for="t-videoFile">Video file</label><input id="t-videoFile" name="videoFile" placeholder="example.mp4" value="${esc(t.videoFile)}" /><small>A file in the media/ folder.</small></div>
+        <div class="field"><label for="t-posterHue">Artwork hue (0–359)</label><input id="t-posterHue" name="posterHue" type="number" min="0" max="359" value="${esc(t.posterHue)}" /></div>
+        <label class="check full"><input type="checkbox" name="featured" ${t.featured ? 'checked' : ''} /> Feature on the home page</label>
         <p class="error-text full"></p>
-        <div class="full"><button class="btn primary">${editId ? 'Save changes' : 'Create title'}</button></div>
-      </form>`;
+        <div class="full form-actions"><button class="btn primary">${editId ? 'Save changes' : 'Create title'}</button><a class="btn text" href="#/admin">Cancel</a></div>
+      </form>
+    </div>`;
 
     const form = document.getElementById('title-form');
     form.addEventListener('submit', async (e) => {
@@ -369,7 +416,7 @@ const Views = (() => {
     });
   }
 
-  const notFound = () => { view().innerHTML = '<div class="center"><h2>Page not found</h2><a class="btn" href="#/">Go home</a></div>'; };
+  const notFound = () => { view().innerHTML = '<div class="page"><div class="state"><h2>Page not found</h2><p>The page you’re looking for doesn’t exist.</p><a class="btn secondary" href="#/">Back to home</a></div></div>'; };
 
   return { home, browse, search, title, watch, myList, login: (p) => authForm(p, 'login'), register: (p) => authForm(p, 'register'), admin, notFound };
 })();
