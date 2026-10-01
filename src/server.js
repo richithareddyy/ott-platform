@@ -2,8 +2,33 @@ const config = require('./config');
 const db = require('./db');
 const { createApp } = require('./app');
 
+function explainDbError(err) {
+  const msg = String(err && err.message);
+  if (err && err.name === 'MongoParseError') {
+    return 'MONGO_URI is not a valid connection string. Check for leftover <db_password> brackets, and URL-encode special characters in the password (@ : / ? # %).';
+  }
+  if (/bad auth|authentication failed/i.test(msg)) {
+    return 'Database rejected the username or password in MONGO_URI.';
+  }
+  if (/ENOTFOUND|querySrv/i.test(msg)) {
+    return 'Could not find the database host in MONGO_URI. Check the cluster address.';
+  }
+  if (/Server selection timed out|ECONNREFUSED|whitelist|IP/i.test(msg)) {
+    return 'Could not reach the database. Check the Atlas Network Access list allows this server (0.0.0.0/0).';
+  }
+  return null;
+}
+
 async function main() {
-  await db.connect();
+  try {
+    await db.connect();
+  } catch (err) {
+    const hint = explainDbError(err);
+    console.error(`Database connection failed: ${err.name}: ${err.message}`);
+    if (hint) console.error(`Hint: ${hint}`);
+    process.exit(1);
+  }
+  console.log('Connected to MongoDB');
   const server = createApp().listen(config.port, () => {
     console.log(`OTT platform listening on http://localhost:${config.port}`);
   });

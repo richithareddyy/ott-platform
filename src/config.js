@@ -13,8 +13,12 @@ const config = {
   mediaDir: path.resolve(process.env.MEDIA_DIR || path.join(__dirname, '..', 'media')),
 };
 
-if (env === 'production' && config.jwtSecret === 'dev-only-secret-change-me') {
-  throw new Error('JWT_SECRET must be set in production');
+if (env === 'production') {
+  const missing = ['MONGO_URI', 'JWT_SECRET'].filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`Missing required environment variable(s): ${missing.join(', ')}`);
+    process.exit(1);
+  }
 }
 
 module.exports = config;
