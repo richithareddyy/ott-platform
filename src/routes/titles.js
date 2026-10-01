@@ -48,10 +48,12 @@ router.get(
         Title.find({ featured: true }).sort({ viewCount: -1 }).limit(5)
           .select(`${Title.CARD_FIELDS} synopsis`).lean(),
         Title.aggregate([
-          { $unwind: '$genres' },
+          // Unwind a copy so each card keeps its full genres array.
+          { $set: { genre: '$genres' } },
+          { $unwind: '$genre' },
           {
             $group: {
-              _id: '$genres',
+              _id: '$genre',
               // $topN keeps only 12 per group in memory instead of pushing everything.
               titles: { $topN: { n: 12, sortBy: { viewCount: -1, _id: -1 }, output: { _id: '$_id', ...cardProjection } } },
             },
@@ -159,6 +161,12 @@ router.post(
 
 /* ----------------------------- Reviews ----------------------------- */
 
+// The shared guest account cannot publish reviews other visitors would see.
+function forbidDemo(req, _res, next) {
+  if (req.user.role === 'demo') return next(new HttpError(403, 'Create a free account to write reviews.'));
+  next();
+}
+
 router.get(
   '/:id/reviews',
   asyncHandler(async (req, res) => {
@@ -186,6 +194,7 @@ router.get(
 router.put(
   '/:id/reviews/mine',
   requireAuth,
+  forbidDemo,
   asyncHandler(async (req, res) => {
     const id = assertObjectId(req.params.id, 'title id');
     const body = validate(req.body, {
@@ -220,6 +229,7 @@ router.put(
 router.delete(
   '/:id/reviews/mine',
   requireAuth,
+  forbidDemo,
   asyncHandler(async (req, res) => {
     const id = assertObjectId(req.params.id, 'title id');
     const removed = await Review.findOneAndDelete({ user: req.user.id, title: id }).lean();

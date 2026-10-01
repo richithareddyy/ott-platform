@@ -7,6 +7,8 @@ The backend is a REST API designed around MongoDB schemas that stay correct unde
 ## Features
 
 - **Accounts:** registration and login with bcrypt password hashing and JWT authentication, plus user and admin roles.
+- **One-click demo:** **Try the demo** signs visitors into a shared guest account. Signed-out visitors who press Play or + My List are moved into it automatically, with no sign-in wall. Guests can't post public reviews.
+- **Poster art:** every title gets original, procedurally generated SVG artwork. The scene is chosen from the title's genres (city at night, planets, haunted forest, castle, underwater, and more), and the palette and layout are seeded from the title, so each poster is unique and stable.
 - **Catalog:** home page with featured titles and per-genre rows. Browse by genre, type, and sort order, with infinite "load more" paging. Full-text search across titles, cast, and synopses.
 - **Streaming:** HTTP range requests (`206 Partial Content`) so players can seek and buffer in chunks. Short-lived stream tokens are scoped to one title.
 - **Watch progress:** the player saves position every 10 seconds and on pause, and resumes where you left off. A "Continue watching" row lists unfinished titles.
@@ -84,6 +86,7 @@ All endpoints are under `/api`. Errors use one shape: `{ "error": { "message", "
 |---|---|---|---|
 | POST | `/auth/register` | none | Create an account and return a token |
 | POST | `/auth/login` | none | Sign in and return a token |
+| POST | `/auth/demo` | none | Sign in to the shared guest account |
 | GET | `/auth/me` | user | Current user |
 | GET | `/titles` | none | List titles: `genre`, `type`, `sort=popular\|newest\|top`, `limit`, `cursor` |
 | GET | `/titles/search` | none | Full-text search: `q`, `page`, `limit` |

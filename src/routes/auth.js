@@ -1,6 +1,9 @@
+const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Title = require('../models/Title');
+const WatchlistItem = require('../models/WatchlistItem');
 const { asyncHandler, HttpError, isDuplicateKey } = require('../utils/http');
 const { validate } = require('../utils/validate');
 const { signAccessToken, requireAuth } = require('../middleware/auth');
@@ -42,6 +45,32 @@ router.post(
     const user = await User.findOne({ email: body.email.toLowerCase() }).select('+passwordHash');
     const ok = user && (await bcrypt.compare(body.password, user.passwordHash));
     if (!ok) throw new HttpError(401, 'Incorrect email or password');
+    res.json({ token: signAccessToken(user), user: user.toPublic() });
+  })
+);
+
+const DEMO_EMAIL = 'demo@streambox.test';
+
+// One-click guest sign-in. The guest account is created on first use with an
+// unusable random password, so it can only be reached through this endpoint.
+router.post(
+  '/demo',
+  authLimiter,
+  asyncHandler(async (_req, res) => {
+    let user = await User.findOne({ email: DEMO_EMAIL });
+    if (!user) {
+      const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      try {
+        user = await User.create({ name: 'Guest', email: DEMO_EMAIL, passwordHash, role: 'demo' });
+        const popular = await Title.find().sort({ viewCount: -1 }).limit(4).select('_id').lean();
+        if (popular.length) {
+          await WatchlistItem.insertMany(popular.map((t) => ({ user: user._id, title: t._id })), { ordered: false });
+        }
+      } catch (err) {
+        if (!isDuplicateKey(err)) throw err;
+        user = await User.findOne({ email: DEMO_EMAIL }); // another request created it first
+      }
+    }
     res.json({ token: signAccessToken(user), user: user.toPublic() });
   })
 );

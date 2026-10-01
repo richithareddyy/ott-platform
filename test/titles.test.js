@@ -51,6 +51,7 @@ describe('catalog', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.featured.length, 1);
     assert.deepEqual(res.body.rows.map((r) => r.genre), ['Comedy', 'Drama']);
+    assert.deepEqual(res.body.rows[0].titles[0].genres, ['Drama', 'Comedy']);
   });
 
   it('returns viewer state on the detail endpoint', async () => {

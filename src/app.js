@@ -30,7 +30,9 @@ function createApp() {
   app.use('/api', notFound);
 
   const publicDir = path.join(__dirname, '..', 'public');
-  app.use(express.static(publicDir, { maxAge: '1h' }));
+  // Revalidate on each load (cheap 304s via ETag) so a deploy reaches
+  // returning visitors immediately instead of after a cache expiry.
+  app.use(express.static(publicDir, { maxAge: 0 }));
   app.get('*', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
   app.use(errorHandler);
