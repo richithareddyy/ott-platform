@@ -34,7 +34,7 @@ const Posters = (() => {
 
   // A shared grade (reduced saturation) keeps every scene in the same
   // restrained, filmic palette so the artwork reads as one series.
-  const hsl = (h, s, l, a = 1) => `hsla(${((h % 360) + 360) % 360},${Math.round(s * 0.62)}%,${l}%,${a})`;
+  const hsl = (h, s, l, a = 1) => `hsla(${((h % 360) + 360) % 360},${Math.round(s * 0.5)}%,${Math.min(l, 78)}%,${a})`;
   const f = (n) => Math.round(n * 10) / 10;
 
   function sky(id, top, bottom) {
@@ -70,6 +70,26 @@ const Posters = (() => {
     const s = scale;
     return `<g fill="${fill}"><circle cx="${f(x)}" cy="${f(groundY - 34 * s)}" r="${f(5 * s)}"/>`
       + `<path d="M${f(x - 7 * s)} ${f(groundY)} L${f(x - 5 * s)} ${f(groundY - 28 * s)} Q${f(x)} ${f(groundY - 31 * s)} ${f(x + 5 * s)} ${f(groundY - 28 * s)} L${f(x + 7 * s)} ${f(groundY)} Z"/></g>`;
+  }
+
+  // Foreground subject for sunset scenes: a couple, a sailboat, or a pier.
+  function sunsetSubject(r, sx, horizon, ink) {
+    const pick = r();
+    if (pick < 0.34) return figure(sx - 9, horizon, 1.1, ink) + figure(sx + 9, horizon, 1.2, ink);
+    if (pick < 0.67) {
+      const bx = sx + (r() - 0.5) * 60;
+      const by = horizon + 18;
+      return `<g fill="${ink}"><path d="M${f(bx - 22)} ${f(by)} L${f(bx + 22)} ${f(by)} L${f(bx + 15)} ${f(by + 7)} L${f(bx - 15)} ${f(by + 7)} Z"/>`
+        + `<rect x="${f(bx - 1)}" y="${f(by - 46)}" width="2" height="46"/>`
+        + `<path d="M${f(bx + 2)} ${f(by - 44)} L${f(bx + 2)} ${f(by - 4)} L${f(bx + 26)} ${f(by - 4)} Z"/>`
+        + `<path d="M${f(bx - 2)} ${f(by - 36)} L${f(bx - 2)} ${f(by - 4)} L${f(bx - 18)} ${f(by - 4)} Z"/></g>`;
+    }
+    const end = sx + 10;
+    const py = horizon + 34;
+    let posts = '';
+    for (let x = 0; x < end; x += 16) posts += `<rect x="${f(x)}" y="${f(py)}" width="2.5" height="${f(H - py)}"/>`;
+    return `<g fill="${ink}"><rect x="0" y="${f(py - 4)}" width="${f(end + 6)}" height="5"/>${posts}</g>`
+      + figure(end - 2, py - 4, 1.1, ink);
   }
 
   const scenes = {
@@ -190,9 +210,9 @@ const Posters = (() => {
     },
 
     Road(r, h, id, opts = {}) {
-      const g = opts.night ? sky(id, hsl(h + 230, 45, 7), hsl(h + 260, 40, 24)) : sky(id, hsl(h + 200, 35, 42), hsl(h + 30, 70, 76));
-      const horizon = 150 + r() * 20;
-      const vx = W * (0.4 + r() * 0.2);
+      const g = opts.night ? sky(id, hsl(h + 230, 45, 7), hsl(h + 260, 40, 24)) : sky(id, hsl(h + 200, 35, 30 + r() * 14), hsl(h + 20 + r() * 40, 70, 62 + r() * 12));
+      const horizon = 120 + r() * 70;
+      const vx = W * (0.25 + r() * 0.5);
       const ground = opts.night ? hsl(h + 230, 25, 8) : hsl(h + 60, 25, 26);
       let dashes = '';
       for (let i = 0; i < 9; i += 1) {
@@ -212,7 +232,7 @@ const Posters = (() => {
       return {
         defs: g.defs,
         body: g.body
-          + (opts.night ? stars(r, 30, horizon - 10) : `<circle cx="${f(vx + (r() - 0.5) * 40)}" cy="${f(horizon - 6)}" r="${f(16 + r() * 8)}" fill="${hsl(h + 40, 90, 88)}" opacity=".9"/>`)
+          + (opts.night ? stars(r, 30, horizon - 10) : `<circle cx="${f(vx + (r() - 0.5) * 120)}" cy="${f(horizon - 6 - r() * 40)}" r="${f(12 + r() * 14)}" fill="${hsl(38, 90, 84)}" opacity=".9"/>`)
           + `<rect y="${f(horizon)}" width="${W}" height="${f(H - horizon)}" fill="${ground}"/>`
           + `<path d="M${f(vx - 2)} ${f(horizon)} L${f(vx + 2)} ${f(horizon)} L${f(vx + W * 0.42)} ${H} L${f(vx - W * 0.42)} ${H} Z" fill="${hsl(h + 220, 10, opts.night ? 12 : 20)}"/>`
           + dashes + poles
@@ -289,8 +309,12 @@ const Posters = (() => {
     },
 
     Romance(r, h, id) {
-      const warm = 330 + (h % 50);
-      const g = sky(id, hsl(warm, 60, 62), hsl(warm + 45, 85, 72));
+      return r() < 0.4 ? scenes.Window(r, h + 20, id) : scenes.Sunset(r, h, id);
+    },
+
+    Sunset(r, h, id) {
+      const warm = 340 + (h % 60);
+      const g = sky(id, hsl(warm, 55, 46), hsl(warm + 40, 75, 64));
       const sx = 50 + r() * 100;
       const horizon = 195 + r() * 15;
       let glints = '';
@@ -304,12 +328,13 @@ const Posters = (() => {
           + `<circle cx="${f(sx)}" cy="${f(horizon - 10)}" r="${f(38 + r() * 12)}" fill="${hsl(warm + 50, 95, 85)}" opacity=".95"/>`
           + `<rect y="${f(horizon)}" width="${W}" height="${f(H - horizon)}" fill="${hsl(warm + 10, 45, 38)}"/>`
           + glints
-          + figure(sx - 9, horizon, 1.1, hsl(warm, 40, 15)) + figure(sx + 9, horizon, 1.2, hsl(warm, 40, 15)),
+          + sunsetSubject(r, sx, horizon, hsl(warm, 40, 13)),
       };
     },
 
     Comedy(r, h, id) {
-      const g = sky(id, hsl(h + 40, 90, 62), hsl(h + 80, 85, 52));
+      if (r() < 0.45) return scenes.Balloon(r, h + 60, id);
+      const g = sky(id, hsl(h + 30, 80, 44), hsl(h + 60, 75, 34));
       const cx = W / 2;
       const cy = 120;
       let rays = '';
@@ -319,7 +344,7 @@ const Posters = (() => {
         rays += `<path d="M${cx} ${cy} L${f(cx + Math.cos(a1) * 260)} ${f(cy + Math.sin(a1) * 260)} L${f(cx + Math.cos(a2) * 260)} ${f(cy + Math.sin(a2) * 260)} Z" fill="#fff" opacity=".12"/>`;
       }
       let confetti = '';
-      for (let i = 0; i < 45; i += 1) {
+      for (let i = 0; i < 18; i += 1) {
         const x = r() * W;
         const y = r() * H;
         const c = hsl(h + r() * 360, 90, 55 + r() * 15);
@@ -327,7 +352,11 @@ const Posters = (() => {
           ? `<rect x="${f(x)}" y="${f(y)}" width="${f(4 + r() * 5)}" height="${f(2 + r() * 3)}" fill="${c}" transform="rotate(${f(r() * 180)} ${f(x)} ${f(y)})"/>`
           : `<circle cx="${f(x)}" cy="${f(y)}" r="${f(1.5 + r() * 3)}" fill="${c}"/>`;
       }
-      return { defs: g.defs, body: g.body + rays + confetti + `<circle cx="${cx}" cy="${cy}" r="${f(26 + r() * 10)}" fill="#fff" opacity=".85"/>` };
+      return {
+        defs: g.defs,
+        body: g.body + rays + confetti + `<circle cx="${cx}" cy="${cy}" r="${f(26 + r() * 10)}" fill="#f6eedd" opacity=".85"/>`
+          + hills(r, 262, 16, hsl(h + 40, 30, 12)),
+      };
     },
 
     Animation(r, h, id) {
@@ -390,12 +419,12 @@ const Posters = (() => {
     },
 
     SunnyHills(r, h, id) {
-      const g = sky(id, hsl(h + 180, 75, 70), hsl(h + 200, 80, 88));
+      const g = sky(id, hsl(h + 190, 55, 50), hsl(h + 210, 60, 70));
       const sx = r() > 0.5 ? 150 : 50;
       let rays = '';
       for (let i = 0; i < 12; i += 1) {
         const a = (i / 12) * Math.PI * 2;
-        rays += `<line x1="${f(sx + Math.cos(a) * 26)}" y1="${f(60 + Math.sin(a) * 26)}" x2="${f(sx + Math.cos(a) * 36)}" y2="${f(60 + Math.sin(a) * 36)}" stroke="#ffd34d" stroke-width="4" stroke-linecap="round"/>`;
+        rays += `<line x1="${f(sx + Math.cos(a) * 26)}" y1="${f(60 + Math.sin(a) * 26)}" x2="${f(sx + Math.cos(a) * 36)}" y2="${f(60 + Math.sin(a) * 36)}" stroke="#e6c26a" stroke-width="4" stroke-linecap="round"/>`;
       }
       let clouds = '';
       for (let i = 0; i < 3; i += 1) {
@@ -405,7 +434,7 @@ const Posters = (() => {
       }
       return {
         defs: g.defs,
-        body: g.body + rays + `<circle cx="${sx}" cy="60" r="20" fill="#ffd34d"/>` + clouds
+        body: g.body + rays + `<circle cx="${sx}" cy="60" r="20" fill="#e6c26a"/>` + clouds
           + hills(r, 215, 30, hsl(h + 100, 55, 52))
           + hills(r, 250, 25, hsl(h + 120, 50, 38)),
       };
@@ -483,7 +512,9 @@ const Posters = (() => {
   function svg(t, { wide = false } = {}) {
     const seed = seedFrom(`${t._id || ''}|${t.name || ''}`);
     const r = rng(seed);
-    const hue = Number.isFinite(Number(t.posterHue)) ? Number(t.posterHue) : seed % 360;
+    // Stored hue plus a per-title offset, so titles with similar stored hues
+    // still diverge.
+    const hue = (Number.isFinite(Number(t.posterHue)) ? Number(t.posterHue) : 0) + (seed % 90) - 45;
     // Pick the scene from any of the title's genres (stable per title) so
     // titles sharing a primary genre still look different.
     const genres = (Array.isArray(t.genres) ? t.genres : [t.genres]).filter((g) => scenes[g]);
