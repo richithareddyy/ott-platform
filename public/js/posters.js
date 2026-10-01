@@ -5,7 +5,9 @@
  * same title always renders the same artwork.
  */
 const Posters = (() => {
-  const W = 200;
+  // Portrait key art is 200x300 (2:3). Wide backdrops widen the canvas to
+  // 480x300 so scenes extend sideways instead of being stretched.
+  let W = 200;
   const H = 300;
   let seq = 0;
 
@@ -30,7 +32,9 @@ const Posters = (() => {
     };
   }
 
-  const hsl = (h, s, l, a = 1) => `hsla(${((h % 360) + 360) % 360},${s}%,${l}%,${a})`;
+  // A shared grade (reduced saturation) keeps every scene in the same
+  // restrained, filmic palette so the artwork reads as one series.
+  const hsl = (h, s, l, a = 1) => `hsla(${((h % 360) + 360) % 360},${Math.round(s * 0.62)}%,${l}%,${a})`;
   const f = (n) => Math.round(n * 10) / 10;
 
   function sky(id, top, bottom) {
@@ -113,6 +117,15 @@ const Posters = (() => {
     },
 
     Crime(r, h, id, opts = {}) {
+      if (!opts.rain) {
+        const pick = r();
+        if (pick < 0.3) return scenes.Bridge(r, h, id);
+        if (pick < 0.5) return scenes.Window(r, h + 180, id);
+      }
+      return scenes.Skyline(r, h, id, opts);
+    },
+
+    Skyline(r, h, id, opts = {}) {
       const g = sky(id, hsl(h + 220, 45, 9), hsl(h + 260, 45, 30));
       let city = '';
       let x = -5;
@@ -143,7 +156,94 @@ const Posters = (() => {
     },
 
     Thriller(r, h, id) {
+      const pick = r();
+      if (pick < 0.4) return scenes.Road(r, h + 200, id, { night: true });
+      if (pick < 0.7) return scenes.Bridge(r, h + 140, id);
       return scenes.Crime(r, h + 140, id, { rain: true });
+    },
+
+    Bridge(r, h, id) {
+      const g = sky(id, hsl(h + 220, 40, 8), hsl(h + 250, 40, 26));
+      const deck = 172 + r() * 16;
+      const t1 = W * (0.22 + r() * 0.08);
+      const t2 = W * (0.68 + r() * 0.08);
+      const top = deck - 70 - r() * 20;
+      const ink = hsl(h + 230, 30, 6);
+      let lights = '';
+      for (let x = 4; x < W; x += 9) lights += `<circle cx="${f(x)}" cy="${f(deck - 2)}" r="1.1" fill="${hsl(40, 95, 72)}"/>`;
+      let reflect = '';
+      for (let x = 6; x < W; x += 9 + r() * 6) {
+        reflect += `<rect x="${f(x)}" y="${f(deck + 14 + r() * 8)}" width="1.6" height="${f(20 + r() * 50)}" fill="${hsl(40, 95, 70)}" opacity="${f(0.15 + r() * 0.25)}"/>`;
+      }
+      const cable = (x0, x1) => `<path d="M${f(x0)} ${f(top)} Q${f((x0 + x1) / 2)} ${f(deck - 6)} ${f(x1)} ${f(top)}" fill="none" stroke="${ink}" stroke-width="1.6"/>`;
+      return {
+        defs: g.defs,
+        body: g.body + stars(r, 25, deck - 40)
+          + `<rect y="${f(deck + 8)}" width="${W}" height="${f(H - deck)}" fill="${hsl(h + 225, 35, 9)}"/>` + reflect
+          + `<path d="M${f(-W * 0.2)} ${f(deck + 30)} Q${f(t1 * 0.5)} ${f(top + 30)} ${f(t1)} ${f(top)}" fill="none" stroke="${ink}" stroke-width="1.6"/>`
+          + cable(t1, t2)
+          + `<path d="M${f(t2)} ${f(top)} Q${f(t2 + (W - t2) * 0.5)} ${f(top + 30)} ${f(W * 1.2)} ${f(deck + 30)}" fill="none" stroke="${ink}" stroke-width="1.6"/>`
+          + `<rect x="${f(t1 - 4)}" y="${f(top - 4)}" width="8" height="${f(deck - top + 40)}" fill="${ink}"/>`
+          + `<rect x="${f(t2 - 4)}" y="${f(top - 4)}" width="8" height="${f(deck - top + 40)}" fill="${ink}"/>`
+          + `<rect y="${f(deck)}" width="${W}" height="6" fill="${ink}"/>` + lights,
+      };
+    },
+
+    Road(r, h, id, opts = {}) {
+      const g = opts.night ? sky(id, hsl(h + 230, 45, 7), hsl(h + 260, 40, 24)) : sky(id, hsl(h + 200, 35, 42), hsl(h + 30, 70, 76));
+      const horizon = 150 + r() * 20;
+      const vx = W * (0.4 + r() * 0.2);
+      const ground = opts.night ? hsl(h + 230, 25, 8) : hsl(h + 60, 25, 26);
+      let dashes = '';
+      for (let i = 0; i < 9; i += 1) {
+        const t0 = (i / 9) ** 2;
+        const t1 = ((i + 0.45) / 9) ** 2;
+        const y0 = horizon + (H - horizon) * t0;
+        const y1 = horizon + (H - horizon) * t1;
+        dashes += `<path d="M${f(vx)} ${f(y0)} L${f(vx)} ${f(y1)}" stroke="${opts.night ? '#e9d9a6' : '#efe6cf'}" stroke-width="${f(0.6 + t1 * 4)}" opacity=".8"/>`;
+      }
+      let poles = '';
+      for (let i = 1; i <= 5; i += 1) {
+        const t = (i / 6) ** 1.6;
+        const x = vx + (W * 0.75) * t;
+        const y = horizon + (H - horizon) * t;
+        poles += `<rect x="${f(x)}" y="${f(y - 10 - t * 110)}" width="${f(0.8 + t * 3)}" height="${f(10 + t * 110)}" fill="#0b0b0e"/>`;
+      }
+      return {
+        defs: g.defs,
+        body: g.body
+          + (opts.night ? stars(r, 30, horizon - 10) : `<circle cx="${f(vx + (r() - 0.5) * 40)}" cy="${f(horizon - 6)}" r="${f(16 + r() * 8)}" fill="${hsl(h + 40, 90, 88)}" opacity=".9"/>`)
+          + `<rect y="${f(horizon)}" width="${W}" height="${f(H - horizon)}" fill="${ground}"/>`
+          + `<path d="M${f(vx - 2)} ${f(horizon)} L${f(vx + 2)} ${f(horizon)} L${f(vx + W * 0.42)} ${H} L${f(vx - W * 0.42)} ${H} Z" fill="${hsl(h + 220, 10, opts.night ? 12 : 20)}"/>`
+          + dashes + poles
+          + (opts.night ? `<circle cx="${f(vx - 3)}" cy="${f(horizon + 4)}" r="2" fill="#ffefb8"/><circle cx="${f(vx + 3)}" cy="${f(horizon + 4)}" r="2" fill="#ffefb8"/>` : ''),
+      };
+    },
+
+    Window(r, h, id) {
+      const wall = hsl(h + 20, 20, 9);
+      const wx = W * 0.5 - 52;
+      const wy = 54 + r() * 20;
+      const ww = 104;
+      const wh = 150;
+      const sky1 = hsl(h + 220, 45, 16);
+      const sky2 = hsl(h + 260, 45, 34);
+      let st = '';
+      for (let i = 0; i < 14; i += 1) st += `<circle cx="${f(wx + 6 + r() * (ww - 12))}" cy="${f(wy + 6 + r() * (wh * 0.6))}" r="${f(0.4 + r() * 0.9)}" fill="#fff" opacity="${f(0.4 + r() * 0.6)}"/>`;
+      return {
+        defs: `<linearGradient id="${id}-win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky1}"/><stop offset="1" stop-color="${sky2}"/></linearGradient>`
+          + `<radialGradient id="${id}-lamp" cx="20%" cy="85%" r="70%"><stop offset="0" stop-color="${hsl(38, 90, 60)}" stop-opacity=".35"/><stop offset="1" stop-color="${hsl(38, 90, 60)}" stop-opacity="0"/></radialGradient>`,
+        body: `<rect width="${W}" height="${H}" fill="${wall}"/><rect width="${W}" height="${H}" fill="url(#${id}-lamp)"/>`
+          + `<rect x="${f(wx)}" y="${f(wy)}" width="${ww}" height="${wh}" fill="url(#${id}-win)"/>` + st
+          + `<circle cx="${f(wx + ww * (0.25 + r() * 0.5))}" cy="${f(wy + 34)}" r="11" fill="#f3ead2" opacity=".9"/>`
+          + `<path d="M${f(wx)} ${f(wy + wh)} L${f(wx)} ${f(wy + wh - 34 - r() * 20)} L${f(wx + 30)} ${f(wy + wh - 20)} L${f(wx + 56)} ${f(wy + wh - 44 - r() * 16)} L${f(wx + ww)} ${f(wy + wh - 18)} L${f(wx + ww)} ${f(wy + wh)} Z" fill="${hsl(h + 230, 30, 7)}"/>`
+          + `<rect x="${f(wx + ww / 2 - 2)}" y="${f(wy)}" width="4" height="${wh}" fill="${wall}"/><rect x="${f(wx)}" y="${f(wy + wh / 2 - 2)}" width="${ww}" height="4" fill="${wall}"/>`
+          + `<rect x="${f(wx - 6)}" y="${f(wy - 6)}" width="${ww + 12}" height="${wh + 12}" fill="none" stroke="${hsl(h + 20, 15, 5)}" stroke-width="6"/>`
+          + `<path d="M${f(wx - 14)} ${f(wy - 10)} Q${f(wx + 10)} ${f(wy + wh * 0.5)} ${f(wx - 4)} ${f(wy + wh + 30)} L${f(wx - 30)} ${f(wy + wh + 30)} L${f(wx - 30)} ${f(wy - 10)} Z" fill="${hsl(h + 10, 30, 16)}"/>`
+          + `<path d="M${f(wx + ww + 14)} ${f(wy - 10)} Q${f(wx + ww - 10)} ${f(wy + wh * 0.5)} ${f(wx + ww + 4)} ${f(wy + wh + 30)} L${f(wx + ww + 30)} ${f(wy + wh + 30)} L${f(wx + ww + 30)} ${f(wy - 10)} Z" fill="${hsl(h + 10, 30, 16)}"/>`
+          + `<rect x="${f(wx - 16)}" y="${f(wy + wh + 6)}" width="${ww + 32}" height="7" fill="${hsl(h + 20, 15, 5)}"/>`
+          + `<path d="M${f(wx + ww - 26)} ${f(wy + wh + 6)} l4 -16 h10 l4 16 Z" fill="#0a0a0a"/><path d="M${f(wx + ww - 19)} ${f(wy + wh - 10)} q-8 -14 -2 -24 q4 10 4 24 q2 -16 10 -20 q-2 14 -6 20 Z" fill="#0a0a0a"/>`,
+      };
     },
 
     Mystery(r, h, id) {
@@ -358,6 +458,13 @@ const Posters = (() => {
     },
 
     Drama(r, h, id) {
+      const pick = r();
+      if (pick < 0.33) return scenes.Road(r, h, id);
+      if (pick < 0.66) return scenes.Window(r, h, id);
+      return scenes.Horizon(r, h, id);
+    },
+
+    Horizon(r, h, id) {
       const g = sky(id, hsl(h + 210, 30, 30), hsl(h + 20, 50, 68));
       const horizon = 200 + r() * 20;
       const fx = 40 + r() * 120;
@@ -373,7 +480,7 @@ const Posters = (() => {
   };
   scenes.Family = scenes.Animation;
 
-  function svg(t) {
+  function svg(t, { wide = false } = {}) {
     const seed = seedFrom(`${t._id || ''}|${t.name || ''}`);
     const r = rng(seed);
     const hue = Number.isFinite(Number(t.posterHue)) ? Number(t.posterHue) : seed % 360;
@@ -382,11 +489,16 @@ const Posters = (() => {
     const genres = (Array.isArray(t.genres) ? t.genres : [t.genres]).filter((g) => scenes[g]);
     const genre = genres.length ? genres[seed % genres.length] : 'Drama';
     const id = `pa${(seq += 1)}`;
+    W = wide ? 480 : 200;
     const scene = scenes[genre](r, hue, id);
-    return `<svg class="poster-art" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">`
-      + `<defs>${scene.defs}<linearGradient id="${id}-shade" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".8"/></linearGradient></defs>`
-      + scene.body
-      + `<rect width="${W}" height="${H}" fill="url(#${id}-shade)"/></svg>`;
+    const out = `<svg class="art" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">`
+      + `<defs>${scene.defs}<radialGradient id="${id}-vig" cx="50%" cy="45%" r="75%"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient></defs>`
+      // Wide backdrops are mirrored so each scene's focal point sits on the
+      // right, clear of the title text and poster on the left.
+      + (wide ? `<g transform="translate(${W} 0) scale(-1 1)">${scene.body}</g>` : scene.body)
+      + `<rect width="${W}" height="${H}" fill="url(#${id}-vig)"/></svg>`;
+    W = 200;
+    return out;
   }
 
   return { svg };

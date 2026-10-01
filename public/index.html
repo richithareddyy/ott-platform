@@ -2,32 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>StreamBox</title>
-  <meta name="description" content="Browse, search, and stream movies and series." />
+  <meta name="description" content="Browse, search, and stream films and series." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <meta name="theme-color" content="#0e0f13" />
+  <meta name="theme-color" content="#0c0b0a" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+  <a class="skip" href="#view">Skip to content</a>
+
   <header class="topbar">
-    <a href="#/" class="brand" aria-label="StreamBox home">
-      <img src="/favicon.svg" alt="" width="30" height="30" />
-      <span class="wordmark">Stream<span>Box</span></span>
-    </a>
-    <nav class="nav" id="nav">
-      <a href="#/" data-nav="home">Home</a>
-      <a href="#/browse" data-nav="browse">Browse</a>
-      <a href="#/my-list" data-nav="my-list">My List</a>
-      <a href="#/admin" data-nav="admin" class="admin-only">Admin</a>
-    </nav>
-    <form class="search" id="search-form" role="search">
-      <input type="search" id="search-input" placeholder="Search titles, cast…" aria-label="Search" maxlength="100" />
-    </form>
-    <div class="account" id="account"></div>
+    <div class="topbar-inner">
+      <a href="#/" class="brand" aria-label="StreamBox home">
+        <img src="/favicon.svg" alt="" width="24" height="24" />
+        <span>StreamBox</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#/" data-nav="home">Home</a>
+        <a href="#/browse" data-nav="browse">Browse</a>
+        <a href="#/my-list" data-nav="my-list">My List</a>
+        <a href="#/admin" data-nav="admin" class="admin-only">Admin</a>
+      </nav>
+      <form class="search" id="search-form" role="search">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+        <input type="search" id="search-input" placeholder="Titles, people, genres" aria-label="Search" maxlength="100" autocomplete="off" />
+      </form>
+      <a href="#/search" class="icon-btn search-link" aria-label="Search">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      </a>
+      <div class="account" id="account"></div>
+    </div>
   </header>
 
   <main id="view" tabindex="-1"></main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>StreamBox</span>
+      <span>A portfolio project by <span id="footer-author"></span></span>
+      <a id="footer-source" target="_blank" rel="noopener">Source on GitHub</a>
+    </div>
+  </footer>
+
+  <nav class="tabbar" aria-label="Primary">
+    <a href="#/" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20h-5v-5.5H9V20H4z"/></svg>Home</a>
+    <a href="#/browse" data-nav="browse"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/></svg>Browse</a>
+    <a href="#/search" data-nav="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>Search</a>
+    <a href="#/my-list" data-nav="my-list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z"/></svg>My List</a>
+  </nav>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
