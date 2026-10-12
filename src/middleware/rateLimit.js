@@ -1,9 +1,6 @@
 const { HttpError } = require('../utils/http');
 
-/**
- * Fixed-window in-memory rate limiter keyed by client IP.
- * Suitable for a single instance; use a shared store (e.g. Redis) when scaling out.
- */
+// Fixed-window limiter keyed by IP. In-memory, so it only works for a single instance.
 function rateLimit({ windowMs, max }) {
   const hits = new Map();
   const timer = setInterval(() => {

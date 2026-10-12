@@ -18,7 +18,7 @@ function createApp() {
   });
   app.use(express.json({ limit: '100kb' }));
 
-  app.get('/api/health', async (_req, res) => {
+  app.get('/api/health', (_req, res) => {
     const up = mongoose.connection.readyState === 1;
     res.status(up ? 200 : 503).json({ status: up ? 'ok' : 'degraded', db: up ? 'connected' : 'disconnected' });
   });
@@ -30,8 +30,7 @@ function createApp() {
   app.use('/api', notFound);
 
   const publicDir = path.join(__dirname, '..', 'public');
-  // Revalidate on each load (cheap 304s via ETag) so a deploy reaches
-  // returning visitors immediately instead of after a cache expiry.
+  // maxAge 0 so browsers revalidate (ETag) and pick up new deploys right away.
   app.use(express.static(publicDir, { maxAge: 0 }));
   app.get('*', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 

@@ -1,17 +1,19 @@
-/**
- * Concurrency load test.
- *
- * Starts the app in-process against a separate database, simulates many
- * viewers issuing a realistic mix of requests at the same time, reports
- * throughput and latency, then checks that the data is still consistent.
- *
- *   npm run loadtest -- --users 200 --concurrency 100 --duration 20
- */
+// Runs the app in-process against a throwaway database, hits it with concurrent
+// clients, prints latency per operation, then audits the data for duplicates
+// and bad counters.
+//
+//   npm run loadtest -- --users 200 --concurrency 100 --duration 20
+const { parseArgs } = require('util');
 const bcrypt = require('bcryptjs');
 
-const args = Object.fromEntries(
-  process.argv.slice(2).reduce((acc, a, i, arr) => (a.startsWith('--') ? [...acc, [a.slice(2), arr[i + 1]]] : acc), [])
-);
+const { values: args } = parseArgs({
+  options: {
+    users: { type: 'string' },
+    titles: { type: 'string' },
+    concurrency: { type: 'string' },
+    duration: { type: 'string' },
+  },
+});
 const USERS = Number(args.users) || 200;
 const CONCURRENCY = Number(args.concurrency) || 100;
 const DURATION_S = Number(args.duration) || 20;
@@ -50,9 +52,8 @@ async function prepare() {
 }
 
 async function run(base, { titleIds, tokens }) {
-  // Weighted mix loosely modelled on streaming traffic: mostly reads and
-  // player heartbeats, with fewer writes to lists and reviews.
-  // A small pool of "hot" titles concentrates writes to force contention.
+  // Mostly reads and player heartbeats, fewer list/review writes. Writes go to a
+  // small set of "hot" titles so requests actually contend.
   const hot = titleIds.slice(0, 10);
   const clock = new Map(); // per user+title monotonically increasing heartbeat time
   const ops = [

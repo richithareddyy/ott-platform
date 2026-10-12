@@ -1,4 +1,4 @@
-/* Hash router and app shell. */
+// Hash router plus the bits of the shell that live outside #view.
 const App = (() => {
   const routes = [
     [/^\/$/, Views.home, 'home'],
@@ -29,10 +29,9 @@ const App = (() => {
       a.classList.toggle('active', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    document.body.dataset.route = navKey || path.split('/')[1] || 'home';
 
     const el = document.getElementById('view');
-    el.innerHTML = UI.spinner();
+    el.innerHTML = UI.loading();
     window.scrollTo(0, 0);
     try {
       const result = await fn(params, ...(re ? path.match(re).slice(1) : []));
@@ -70,7 +69,7 @@ const App = (() => {
     });
   }
 
-  /* Row arrows: page through a row; hidden at either end. */
+  // Row arrows are hidden at either end of a row.
   function updateRowNav(track) {
     const tracks = track ? [track] : document.querySelectorAll('.row-track');
     tracks.forEach((t) => {

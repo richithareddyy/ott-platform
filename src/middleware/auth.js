@@ -8,8 +8,8 @@ function signAccessToken(user) {
   });
 }
 
-// Short-lived token scoped to a single title, passed in the <video> src query
-// string because media elements cannot send an Authorization header.
+// Scoped to one title and passed in the <video> src query string, since media
+// elements can't send an Authorization header.
 function signStreamToken(userId, titleId) {
   return jwt.sign({ sub: String(userId), tid: String(titleId), scope: 'stream' }, config.jwtSecret, {
     expiresIn: config.streamTokenTtl,
@@ -31,27 +31,29 @@ function readBearer(req) {
   return header.startsWith('Bearer ') ? header.slice(7) : null;
 }
 
+function userFromToken(token) {
+  const p = verify(token, 'api');
+  return { id: p.sub, role: p.role, name: p.name };
+}
+
 function requireAuth(req, _res, next) {
   const token = readBearer(req);
   if (!token) return next(new HttpError(401, 'Authentication required'));
   try {
-    const p = verify(token, 'api');
-    req.user = { id: p.sub, role: p.role, name: p.name };
+    req.user = userFromToken(token);
     next();
   } catch (err) {
     next(err);
   }
 }
 
+// A bad or expired token is treated as anonymous rather than an error.
 function optionalAuth(req, _res, next) {
   const token = readBearer(req);
   if (token) {
     try {
-      const p = verify(token, 'api');
-      req.user = { id: p.sub, role: p.role, name: p.name };
-    } catch {
-      /* treat as anonymous */
-    }
+      req.user = userFromToken(token);
+    } catch {}
   }
   next();
 }

@@ -1,4 +1,4 @@
-/* Thin client for the REST API. Stores the session token in localStorage. */
+// Small wrapper around fetch for the REST API. The session lives in localStorage.
 const Api = (() => {
   const KEY = 'streambox.session';
 
@@ -12,7 +12,7 @@ const Api = (() => {
     try {
       if (next) localStorage.setItem(KEY, JSON.stringify(next));
       else localStorage.removeItem(KEY);
-    } catch { /* storage unavailable: session lasts for this page only */ }
+    } catch {} // storage blocked (private mode etc.): session just won't persist
     window.dispatchEvent(new CustomEvent('session-change'));
   }
 
@@ -48,7 +48,6 @@ const Api = (() => {
   };
 
   return {
-    ApiError,
     get session() { return session; },
     get isGuest() { return session?.user.role === 'demo'; },
     async demo() { setSession(await request('POST', '/auth/demo')); },

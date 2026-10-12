@@ -8,8 +8,6 @@ async function connect(uri = config.mongoUri) {
     maxPoolSize: config.mongoPoolSize,
     minPoolSize: 5,
     serverSelectionTimeoutMS: 5000,
-    // Ensure declared indexes exist on startup (a no-op once they are built).
-    autoIndex: true,
   });
   return mongoose.connection;
 }

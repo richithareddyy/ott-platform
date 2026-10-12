@@ -1,11 +1,7 @@
 const Title = require('../models/Title');
 
-/**
- * Applies a change to a title's rating aggregates in a single atomic update.
- * The aggregation-pipeline form lets ratingAvg be recomputed from the *new*
- * sum/count inside the same write, so concurrent reviews never leave the
- * average out of sync with its inputs.
- */
+// Pipeline update so ratingAvg is recomputed from the new sum/count in the same
+// atomic write; concurrent reviews can't leave the average stale.
 function applyRatingDelta(titleId, countDelta, sumDelta) {
   return Title.updateOne({ _id: titleId }, [
     {

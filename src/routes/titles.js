@@ -4,12 +4,11 @@ const Review = require('../models/Review');
 const WatchlistItem = require('../models/WatchlistItem');
 const WatchProgress = require('../models/WatchProgress');
 const { GENRES, MATURITY } = Title;
-const { asyncHandler, assertObjectId, HttpError } = require('../utils/http');
+const { asyncHandler, assertObjectId, HttpError, isDuplicateKey } = require('../utils/http');
 const { validate } = require('../utils/validate');
 const { encodeCursor, decodeCursor, afterCursor } = require('../utils/cursor');
 const { optionalAuth, requireAuth, requireAdmin, signStreamToken } = require('../middleware/auth');
 const { applyRatingDelta } = require('../services/ratings');
-const { isDuplicateKey } = require('../utils/http');
 
 const router = express.Router();
 
@@ -29,8 +28,8 @@ const titleRules = {
   featured: { type: 'boolean' },
 };
 
-// Home-page rows change slowly but are requested on every visit, so they are
-// cached briefly in memory to absorb bursts of traffic.
+// Home rows are hit on every visit but change slowly, so cache them briefly.
+// Disabled under test so assertions see fresh data.
 let rowsCache = { at: 0, data: null };
 const ROWS_TTL_MS = process.env.NODE_ENV === 'test' ? -1 : 30 * 1000;
 const invalidateRows = () => { rowsCache = { at: 0, data: null }; };
@@ -54,7 +53,6 @@ router.get(
           {
             $group: {
               _id: '$genre',
-              // $topN keeps only 12 per group in memory instead of pushing everything.
               titles: { $topN: { n: 12, sortBy: { viewCount: -1, _id: -1 }, output: { _id: '$_id', ...cardProjection } } },
             },
           },
@@ -86,8 +84,7 @@ router.get(
     if (q.type) filter.type = q.type;
     if (q.cursor) Object.assign(filter, afterCursor(field, decodeCursor(q.cursor)));
 
-    // Keyset pagination: cost stays constant however deep the client scrolls,
-    // unlike skip/limit which scans and discards every earlier document.
+    // Keyset pagination rather than skip, so deep pages stay cheap.
     const items = await Title.find(filter)
       .sort({ [field]: -1, _id: -1 })
       .limit(q.limit + 1)
@@ -147,7 +144,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const id = assertObjectId(req.params.id, 'title id');
     const [title, progress] = await Promise.all([
-      Title.findById(id).select('name videoFile durationMinutes').lean(),
+      Title.findById(id).select('videoFile').lean(),
       WatchProgress.findOne({ user: req.user.id, title: id }).select('positionSeconds completed').lean(),
     ]);
     if (!title) throw new HttpError(404, 'Title not found');
@@ -159,9 +156,7 @@ router.post(
   })
 );
 
-/* ----------------------------- Reviews ----------------------------- */
-
-// The shared guest account cannot publish reviews other visitors would see.
+// The shared guest account shouldn't be able to post public reviews.
 function forbidDemo(req, _res, next) {
   if (req.user.role === 'demo') return next(new HttpError(403, 'Create a free account to write reviews.'));
   next();
@@ -188,9 +183,9 @@ router.get(
   })
 );
 
-// Create or replace the current user's review. findOneAndUpdate returns the
-// previous document atomically, so the aggregate delta is always exact even
-// if the same user submits from two devices at once.
+// Upsert the caller's review. findOneAndUpdate hands back the previous version
+// atomically, so the rating delta stays exact even if the same user submits
+// twice at once.
 router.put(
   '/:id/reviews/mine',
   requireAuth,
@@ -203,20 +198,19 @@ router.put(
     });
     if (!(await Title.exists({ _id: id }))) throw new HttpError(404, 'Title not found');
 
+    const upsert = () => Review.findOneAndUpdate(
+      { user: req.user.id, title: id },
+      { $set: { rating: body.rating, body: body.body, userName: req.user.name } },
+      { upsert: true, new: false, runValidators: true, setDefaultsOnInsert: true }
+    ).lean();
+
     let previous;
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        previous = await Review.findOneAndUpdate(
-          { user: req.user.id, title: id },
-          { $set: { rating: body.rating, body: body.body, userName: req.user.name } },
-          { upsert: true, new: false, runValidators: true, setDefaultsOnInsert: true }
-        ).lean();
-        break;
-      } catch (err) {
-        // Two first-time upserts raced; the loser retries as an update.
-        if (isDuplicateKey(err) && attempt === 0) continue;
-        throw err;
-      }
+    try {
+      previous = await upsert();
+    } catch (err) {
+      // Two first-time upserts raced on the unique index; retry as an update.
+      if (!isDuplicateKey(err)) throw err;
+      previous = await upsert();
     }
 
     if (previous) await applyRatingDelta(id, 0, body.rating - previous.rating);
@@ -239,8 +233,6 @@ router.delete(
   })
 );
 
-/* ------------------------------ Admin ------------------------------ */
-
 router.post(
   '/',
   requireAuth,
@@ -253,9 +245,8 @@ router.post(
   })
 );
 
-// Optimistic concurrency: the client must send the version it last read.
-// If another admin saved in between, the filter misses and we return 409
-// instead of silently overwriting their changes.
+// Optimistic concurrency: the client sends the version it last read, and a
+// stale version gets a 409 instead of overwriting someone else's edit.
 router.patch(
   '/:id',
   requireAuth,

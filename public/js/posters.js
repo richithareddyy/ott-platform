@@ -1,9 +1,6 @@
-/*
- * Generative poster art. Each title gets an original illustrated scene chosen
- * by its primary genre; the layout, palette, and details are derived from a
- * seed built from the title's id and name, so every poster is unique and the
- * same title always renders the same artwork.
- */
+// Generated poster art. Each title gets a scene picked from one of its genres,
+// with layout and colours seeded from its id and name, so a title always
+// renders the same artwork.
 const Posters = (() => {
   // Portrait key art is 200x300 (2:3). Wide backdrops widen the canvas to
   // 480x300 so scenes extend sideways instead of being stretched.

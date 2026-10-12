@@ -51,8 +51,8 @@ router.post(
 
 const DEMO_EMAIL = 'demo@streambox.test';
 
-// One-click guest sign-in. The guest account is created on first use with an
-// unusable random password, so it can only be reached through this endpoint.
+// Shared guest account for the "Try demo" button. It's created on first use with
+// a random password nobody knows, so this endpoint is the only way in.
 router.post(
   '/demo',
   authLimiter,

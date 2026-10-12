@@ -2,20 +2,14 @@ const config = require('./config');
 const db = require('./db');
 const { createApp } = require('./app');
 
-function explainDbError(err) {
-  const msg = String(err && err.message);
-  if (err && err.name === 'MongoParseError') {
-    return 'MONGO_URI is not a valid connection string. Check for leftover <db_password> brackets, and URL-encode special characters in the password (@ : / ? # %).';
+// Common Atlas setup mistakes, so a failed deploy log says what to fix.
+function dbHint(err) {
+  if (err.name === 'MongoParseError') {
+    return 'MONGO_URI is malformed. Remove any <db_password> placeholder and URL-encode special characters in the password.';
   }
-  if (/bad auth|authentication failed/i.test(msg)) {
-    return 'Database rejected the username or password in MONGO_URI.';
-  }
-  if (/ENOTFOUND|querySrv/i.test(msg)) {
-    return 'Could not find the database host in MONGO_URI. Check the cluster address.';
-  }
-  if (/Server selection timed out|ECONNREFUSED|whitelist|IP/i.test(msg)) {
-    return 'Could not reach the database. Check the Atlas Network Access list allows this server (0.0.0.0/0).';
-  }
+  if (/bad auth|authentication failed/i.test(err.message)) return 'Check the database username and password in MONGO_URI.';
+  if (/ENOTFOUND|querySrv/i.test(err.message)) return 'Check the cluster host in MONGO_URI.';
+  if (/timed out|ECONNREFUSED/i.test(err.message)) return 'Check that Atlas Network Access allows this server.';
   return null;
 }
 
@@ -23,7 +17,7 @@ async function main() {
   try {
     await db.connect();
   } catch (err) {
-    const hint = explainDbError(err);
+    const hint = dbHint(err);
     console.error(`Database connection failed: ${err.name}: ${err.message}`);
     if (hint) console.error(`Hint: ${hint}`);
     process.exit(1);

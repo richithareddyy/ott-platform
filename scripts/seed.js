@@ -1,9 +1,7 @@
-/**
- * Seeds the database with the sample catalog, demo accounts, and reviews.
- *
- *   npm run seed                 reset and load the sample catalog
- *   npm run seed -- --bulk 50000 also generate 50,000 synthetic titles (for load testing)
- */
+// Wipes the target database and loads the sample catalog, demo accounts, and reviews.
+//
+//   npm run seed
+//   npm run seed -- --bulk 50000   also insert 50k synthetic titles
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -71,8 +69,7 @@ async function seedBulk(n) {
         viewCount: rand(0, 5000),
       };
     });
-    // Unordered bulk insert: the server can apply the batch in parallel and
-    // one bad document does not abort the rest.
+    // ordered: false lets Mongo insert the batch in parallel and skip bad docs.
     await Title.insertMany(docs, { ordered: false, lean: true });
     inserted += size;
     process.stdout.write(`\r  bulk titles: ${inserted.toLocaleString()} / ${n.toLocaleString()}`);
@@ -100,7 +97,7 @@ async function main() {
     { name: 'Admin', email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, 10), role: 'admin' },
     { name: 'Demo Viewer', email: userEmail, passwordHash: await bcrypt.hash(userPassword, 10) },
   ]);
-  // Reviewer accounts get random, unrecoverable passwords; they only exist to own sample reviews.
+  // These accounts only exist to own the sample reviews, so nobody needs their password.
   const reviewerHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
   const reviewers = await User.insertMany(
     ['Jordan', 'Priya', 'Mateo', 'Aiko', 'Sam', 'Noor'].map((n) => ({

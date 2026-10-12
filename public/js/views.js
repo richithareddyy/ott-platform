@@ -1,4 +1,4 @@
-/* Page views. Each view renders into #view and may return a cleanup function. */
+// Each view renders into #view and can return a cleanup function (the player uses this).
 const Views = (() => {
   const { esc, icon } = UI;
   const view = () => document.getElementById('view');
@@ -8,8 +8,7 @@ const Views = (() => {
     return false;
   };
 
-  // Signed-out visitors are moved into the shared guest account instead of
-  // hitting a sign-in wall, so Play and My List just work.
+  // Play and My List sign visitors into the guest account instead of showing a login wall.
   async function ensureSession() {
     if (Api.session) return true;
     try {
@@ -38,7 +37,6 @@ const Views = (() => {
 
   const pageHead = (title, sub = '') => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</header>`;
 
-  /* ------------------------------ Home ------------------------------ */
   async function home() {
     const [{ featured, rows }, cont, popular, top] = await Promise.all([
       Api.rows(),
@@ -81,7 +79,6 @@ const Views = (() => {
     view().querySelector('[data-start-demo]')?.addEventListener('click', (e) => startDemo(e.currentTarget));
   }
 
-  /* ----------------------------- Browse ----------------------------- */
   async function browse(params) {
     const { genres } = await Api.genres();
     const state = { genre: params.get('genre') || '', type: params.get('type') || '', sort: params.get('sort') || 'popular' };
@@ -120,7 +117,6 @@ const Views = (() => {
     await loadPage();
   }
 
-  /* ----------------------------- Search ----------------------------- */
   async function search(params) {
     const q = (params.get('q') || '').trim();
     document.getElementById('search-input').value = q;
@@ -151,7 +147,6 @@ const Views = (() => {
     if (!q && window.matchMedia('(max-width: 760px)').matches) form.q.focus();
   }
 
-  /* -------------------------- Title detail -------------------------- */
   async function title(_params, id) {
     const [{ title: t, viewer }, reviews] = await Promise.all([Api.title(id), Api.reviews(id)]);
     let inList = viewer?.inWatchlist || false;
@@ -256,7 +251,6 @@ const Views = (() => {
     }
   }
 
-  /* ----------------------------- Player ----------------------------- */
   async function watch(_params, id) {
     if (!(await ensureSession())) return;
     const [{ title: t }, play] = await Promise.all([Api.title(id), Api.play(id)]);
@@ -296,7 +290,6 @@ const Views = (() => {
     return () => { send(true); video.pause(); video.removeAttribute('src'); video.load(); };
   }
 
-  /* ----------------------------- My List ---------------------------- */
   async function myList() {
     if (!(await ensureSession())) return;
     const { items } = await Api.watchlist();
@@ -308,7 +301,6 @@ const Views = (() => {
     </div>`;
   }
 
-  /* ------------------------------ Auth ------------------------------ */
   function authForm(params, mode) {
     const next = params.get('next') || '/';
     const isLogin = mode === 'login';
@@ -348,7 +340,6 @@ const Views = (() => {
     });
   }
 
-  /* ------------------------------ Admin ----------------------------- */
   async function admin(params) {
     if (!requireLogin()) return;
     if (Api.session.user.role !== 'admin') { view().innerHTML = '<div class="page"><div class="state"><h2>Admins only</h2><p>This area is for catalog administrators.</p></div></div>'; return; }

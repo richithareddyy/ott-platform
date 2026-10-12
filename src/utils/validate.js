@@ -1,11 +1,7 @@
 const { HttpError } = require('./http');
 
-/**
- * Minimal schema validator for request bodies/queries.
- * rules: { field: { type, required, min, max, maxLength, enum, pattern, items } }
- * Returns a new object containing only the declared fields (unknown keys are
- * dropped), so client input can never smuggle operators like `$gt` into queries.
- */
+// Only declared fields are copied to the result, so request input can't
+// smuggle Mongo operators like { $gt: '' } into a query.
 function validate(input, rules, { partial = false } = {}) {
   const out = {};
   const errors = {};

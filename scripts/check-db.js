@@ -1,7 +1,5 @@
-/**
- * Verifies that MONGO_URI can connect and authenticate, without printing it.
- *   MONGO_URI="..." node scripts/check-db.js
- */
+// Checks that MONGO_URI connects and authenticates, without echoing the URI.
+//   MONGO_URI="..." node scripts/check-db.js
 const mongoose = require('mongoose');
 
 async function main() {

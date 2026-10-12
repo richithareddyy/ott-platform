@@ -5,7 +5,6 @@ function notFound(req, _res, next) {
   next(new HttpError(404, `Route not found: ${req.method} ${req.originalUrl}`));
 }
 
-// eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, _next) {
   let status = err.status || 500;
   let message = err.message || 'Internal server error';
@@ -18,9 +17,6 @@ function errorHandler(err, req, res, _next) {
   } else if (err instanceof mongoose.Error.CastError) {
     status = 400;
     message = `Invalid value for ${err.path}`;
-  } else if (err instanceof mongoose.Error.VersionError) {
-    status = 409;
-    message = 'This record was modified by someone else. Reload and try again.';
   } else if (err.code === 11000) {
     status = 409;
     message = 'Resource already exists';

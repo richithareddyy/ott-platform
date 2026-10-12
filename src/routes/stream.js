@@ -9,7 +9,7 @@ const { verify } = require('../middleware/auth');
 const router = express.Router();
 
 const MIME = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.m4v': 'video/mp4', '.mov': 'video/quicktime' };
-const MAX_CHUNK = 2 * 1024 * 1024; // cap open-ended ranges so each response stays small
+const MAX_CHUNK = 2 * 1024 * 1024; // for open-ended ranges like "bytes=1000-"
 
 function parseRange(header, size) {
   const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
@@ -17,9 +17,8 @@ function parseRange(header, size) {
   let start;
   let end;
   if (m[1] === '') {
-    // Suffix range: last N bytes.
-    const n = Number(m[2]);
-    start = Math.max(0, size - n);
+    // "bytes=-500" means the last 500 bytes
+    start = Math.max(0, size - Number(m[2]));
     end = size - 1;
   } else {
     start = Number(m[1]);
@@ -29,8 +28,6 @@ function parseRange(header, size) {
   return { start, end };
 }
 
-// Serves video with HTTP range support so players can seek and buffer in
-// chunks rather than downloading the whole file.
 router.get(
   '/:titleId',
   asyncHandler(async (req, res) => {
@@ -41,7 +38,7 @@ router.get(
     const title = await Title.findById(titleId).select('videoFile').lean();
     if (!title || !title.videoFile) throw new HttpError(404, 'No video available for this title');
 
-    // basename() prevents path traversal out of the media directory.
+    // basename() keeps a crafted videoFile from escaping the media directory.
     const filePath = path.join(config.mediaDir, path.basename(title.videoFile));
     let stat;
     try {
@@ -59,14 +56,13 @@ router.get(
       'Last-Modified': stat.mtime.toUTCString(),
     });
 
-    const rangeHeader = req.headers.range;
-    if (!rangeHeader) {
+    if (!req.headers.range) {
       res.set('Content-Length', String(size));
       if (req.method === 'HEAD') return res.end();
       return fs.createReadStream(filePath).pipe(res);
     }
 
-    const range = parseRange(rangeHeader, size);
+    const range = parseRange(req.headers.range, size);
     if (!range) {
       res.set('Content-Range', `bytes */${size}`);
       return res.status(416).end();
