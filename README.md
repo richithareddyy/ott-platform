@@ -4,6 +4,8 @@ A web-based video streaming project with catalog browsing, search, watchlists, p
 
 [Getting started](#getting-started) · [Features](#features) · [REST API](#rest-api) · [Database design](#schema-design-and-concurrency) · [Load test](#load-test)
 
+The interesting part of this project is what happens when browser sessions overlap: two watchlist adds, a late playback heartbeat, or two edits to the same catalog entry. The implementation uses database constraints and conditional writes to handle those cases.
+
 ## At a glance
 
 | Viewers | Administrators | Backend |
@@ -30,7 +32,7 @@ The backend handles duplicate list entries, out-of-order playback updates, and c
 
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js 20+ |
+| Runtime | Node.js 22.9+ for the npm scripts |
 | API | Express.js 4 |
 | Database | MongoDB 7 with Mongoose 8 |
 | Auth | JSON Web Tokens and bcrypt |
@@ -40,7 +42,7 @@ The backend handles duplicate list entries, out-of-order playback updates, and c
 
 ## Getting started
 
-Prerequisites: Node.js 20.12 or newer, and Docker (for MongoDB).
+Prerequisites: Node.js 22.9 or newer, and Docker (for MongoDB). The npm scripts use [`--env-file-if-exists`](https://nodejs.org/download/release/v22.23.0/docs/api/cli.html#--env-file-if-existsfile), which is not available in the declared minimum Node 20.12 runtime; the Dockerfile already uses Node 22.
 
 ```bash
 git clone https://github.com/richithareddyy/ott-platform.git
@@ -133,9 +135,9 @@ Collections: `users`, `titles`, `watchlistitems`, `watchprogresses`, and `review
 | Watchlists and history growing without bound inside the user document | Stored as **separate collections**, not arrays on `User`. Documents stay small, and writes from different sessions never contend on one hot document. |
 | Many users rating the same title at once | Rating totals (`ratingCount`, `ratingSum`, `ratingAvg`) are updated with a **single atomic aggregation-pipeline update**, so the average is recomputed from the new sum and count in the same write. When a user changes a rating, `findOneAndUpdate` returns the previous value atomically, so the delta is exact. |
 | Player heartbeats arriving out of order (retries, several tabs) | Each write carries the client's `reportedAt` time and only applies when it is **newer than the stored value**, so a delayed heartbeat can never rewind playback position. |
-| Counting views | `viewCount` is incremented only when a progress document is **first inserted**, which gives one unique view per user per title. |
+| Counting views | `viewCount` is incremented only when a progress document is **first inserted**, which counts one view per progress-record creation. Deleting progress and playing again can increment it again. |
 | Two admins editing the same title | **Optimistic concurrency:** the update filter includes the version the client read (`__v`). A stale edit matches nothing and returns `409 Conflict`. |
-| Deep catalog paging getting slower | **Keyset (cursor) pagination** on `(sortField, _id)` backed by compound indexes. Cost stays the same on page 1 and page 1,000, unlike `skip`. |
+| Deep catalog paging getting slower | **Keyset (cursor) pagination** on `(sortField, _id)` backed by compound indexes. This avoids scanning skipped rows as the page offset grows; actual latency still depends on the query and data. |
 | Heavy home-page reads | `$topN` aggregation (keeps only 12 titles per genre in memory) plus a 30-second in-memory cache. List endpoints use **projections** and **`lean()`** queries. |
 | Search | A weighted **text index** (name > cast > synopsis). |
 | Connection pressure | A configurable **connection pool** (`MONGO_POOL_SIZE`, default 50). |
@@ -146,7 +148,7 @@ Indexes are declared in [src/models](src/models). They are built automatically i
 
 `npm run loadtest` starts the API in-process against a separate database. It runs concurrent clients issuing a weighted mix of browse, detail, search, heartbeat, watchlist, and review requests, with writes concentrated on 10 "hot" titles to force contention. It then verifies data integrity.
 
-Example run on a development laptop (single Node process, MongoDB in Docker, 100 concurrent clients for 15 seconds):
+Previously reported example run (the raw log is not committed) on a development laptop (single Node process, MongoDB in Docker, 100 concurrent clients for 15 seconds):
 
 ```
 Total: 51,633 requests in 15.0s = 3440 req/s, 0 errors (0.00%)
@@ -179,6 +181,12 @@ Results depend on hardware. Options: `--users`, `--titles`, `--concurrency`, and
 ├── docker-compose.yml
 └── Dockerfile
 ```
+
+## Tests and remaining tradeoffs
+
+`npm test` uses Node's test runner and Supertest against MongoDB. Tests cover authentication, catalog operations, byte-range responses, duplicate writes, rating aggregates, stale playback updates, and conflicting admin edits. The default database is `ott_platform_test`; `MONGO_URI_TEST` overrides it. The test helper drops that database during setup and teardown.
+
+Review records and title rating aggregates are separate writes, as are progress creation and view-count updates. Individual updates are atomic, but a process failure between them can leave aggregates inconsistent. The load test checks concurrency within a running process; it does not test crash recovery. The service serves local media files and does not implement transcoding, adaptive streaming, subscriptions, or DRM.
 
 ## Security notes
 
