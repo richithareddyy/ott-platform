@@ -42,7 +42,7 @@ The backend handles duplicate list entries, out-of-order playback updates, and c
 
 ## Getting started
 
-Prerequisites: Node.js 22.9 or newer, and Docker (for MongoDB). The npm scripts use [`--env-file-if-exists`](https://nodejs.org/download/release/v22.23.0/docs/api/cli.html#--env-file-if-existsfile), which is not available in the declared minimum Node 20.12 runtime; the Dockerfile already uses Node 22.
+Prerequisites: Node.js 22.9 or newer, and Docker (for MongoDB). The npm scripts use [`--env-file-if-exists`](https://nodejs.org/download/release/v22.23.0/docs/api/cli.html#--env-file-if-existsfile) and pass a glob pattern to `node --test`; 22.9 is the earliest release that supports both. The Dockerfile already uses Node 22.
 
 ```bash
 git clone https://github.com/richithareddyy/ott-platform.git
