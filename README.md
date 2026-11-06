@@ -22,12 +22,12 @@ Before starting, set `JWT_SECRET` and the seed account passwords in `.env`. Open
 
 ## Technical decisions
 
-- **Duplicates:** watchlist items, progress, and reviews each have a unique `{user, title}` index plus idempotent upserts. A request that loses an insert race is treated as “already exists.”
-- **Heartbeats:** each one carries the client’s report time and only applies if it’s newer than the stored value, so a delayed retry can’t rewind playback.
-- **Ratings:** totals and the average are recomputed in a single atomic pipeline update.
-- **Admin edits:** the update filter includes the version the client read, so a stale edit matches nothing and returns `409 Conflict`.
-- **Playback:** range requests (`206 Partial Content`) with short-lived stream tokens scoped to one title.
-- **Paging:** keyset cursors on `(sortField, _id)`, so deep pages don’t scan skipped rows.
+- **Repeated clicks:** a unique `{user, title}` database index prevents duplicate watchlist, progress, and review records. Repeating a request updates the existing record.
+- **Playback updates:** the player sends its position with a timestamp. Older updates are ignored, so a delayed request cannot rewind saved progress.
+- **Ratings:** totals and the average change together in one database update.
+- **Admin edits:** saving checks the version originally opened. If another admin has changed it, the server returns `409 Conflict` instead of overwriting their work.
+- **Streaming:** the player requests portions of a video using HTTP range requests and short-lived tokens for that title.
+- **Catalog pages:** a cursor remembers where the previous page ended, avoiding a scan through all earlier results.
 
 The API lives under `/api`; [the guide](GUIDE.md#rest-api) covers endpoints, database indexes, and deployment. Docker can run the app as well as MongoDB through the `app` profile.
 
