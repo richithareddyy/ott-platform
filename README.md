@@ -1,10 +1,8 @@
 # StreamBox
 
-A video-streaming web project with catalog search, watchlists, playback progress, reviews, and an admin interface.
+A video-streaming site with catalog search, watchlists, playback progress, reviews, and an admin page. Double-clicks, multiple tabs, retried heartbeats, and two admins editing one title all create race conditions, and working through those was the point of the project.
 
-**Node.js · Express · MongoDB · Mongoose · JavaScript · Docker**
-
-I built this to work through the backend details behind a streaming interface: HTTP range requests for playback, indexed catalog queries, and concurrent updates to user data. The frontend is a vanilla JavaScript app with a hash router. Poster artwork is generated procedurally as SVG.
+The backend is Node.js, Express, and MongoDB. The frontend is vanilla JavaScript with a hash router, and poster artwork is generated procedurally as SVG.
 
 ## Run locally
 
@@ -24,10 +22,12 @@ Before starting, set `JWT_SECRET` and the seed account passwords in `.env`. Open
 
 ## Technical decisions
 
-- Range requests let a player request part of a video file.
-- Watchlist and progress updates account for concurrent requests.
-- Reviews are limited to one per user/title, with aggregate ratings.
-- Admin edits use optimistic concurrency to detect conflicting changes.
+- **Duplicates:** watchlist items, progress, and reviews each have a unique `{user, title}` index plus idempotent upserts. A request that loses an insert race is treated as “already exists.”
+- **Heartbeats:** each one carries the client’s report time and only applies if it’s newer than the stored value, so a delayed retry can’t rewind playback.
+- **Ratings:** totals and the average are recomputed in a single atomic pipeline update.
+- **Admin edits:** the update filter includes the version the client read, so a stale edit matches nothing and returns `409 Conflict`.
+- **Playback:** range requests (`206 Partial Content`) with short-lived stream tokens scoped to one title.
+- **Paging:** keyset cursors on `(sortField, _id)`, so deep pages don’t scan skipped rows.
 
 The API lives under `/api`; [the guide](GUIDE.md#rest-api) covers endpoints, database indexes, and deployment. Docker can run the app as well as MongoDB through the `app` profile.
 
