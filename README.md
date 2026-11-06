@@ -1,6 +1,6 @@
 # StreamBox
 
-A video-streaming site with catalog search, watchlists, playback progress, reviews, and an admin page. Double-clicks, multiple tabs, retried heartbeats, and two admins editing one title all create race conditions, and working through those was the point of the project.
+You pause a video, open another tab, and come back later expecting your place to be saved. StreamBox is a video-streaming demo with catalog search, watchlists, playback progress, reviews, and an admin page. Much of the work is in keeping that state consistent when requests arrive twice, out of order, or at the same time.
 
 The backend is Node.js, Express, and MongoDB. The frontend is vanilla JavaScript with a hash router, and poster artwork is generated procedurally as SVG.
 
