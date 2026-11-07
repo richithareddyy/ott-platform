@@ -1,8 +1,8 @@
-// Wipes the target database and loads the sample catalog, demo accounts, and reviews.
+// Wipes the target database and loads the film catalog and the demo accounts.
+// Ratings, reviews, and view counts start empty; they come only from real use.
 //
 //   npm run seed
 //   npm run seed -- --bulk 50000   also insert 50k synthetic titles
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -21,30 +21,12 @@ const bulkCount = bulkIdx >= 0 ? Number(args[bulkIdx + 1]) || 0 : 0;
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[rand(0, arr.length - 1)];
 
-const REVIEW_LINES = {
-  2: ['Not for me, but I see the appeal.', 'Too slow in the middle.', ''],
-  3: ['Solid weekend watch.', 'Slow start, decent payoff.', ''],
-  4: ['Beautifully shot and well acted.', 'The ending caught me off guard.', 'Great for the whole family.', ''],
-  5: ['Could not stop watching.', 'The soundtrack alone is worth it.', 'An instant favourite.', ''],
-};
-
 function mediaFiles() {
   try {
     return fs.readdirSync(config.mediaDir).filter((f) => /\.(mp4|webm|m4v)$/i.test(f)).sort();
   } catch {
     return [];
   }
-}
-
-async function recomputeRatings() {
-  const stats = await Review.aggregate([{ $group: { _id: '$title', count: { $sum: 1 }, sum: { $sum: '$rating' } } }]);
-  if (!stats.length) return;
-  await Title.bulkWrite(stats.map((s) => ({
-    updateOne: {
-      filter: { _id: s._id },
-      update: { $set: { ratingCount: s.count, ratingSum: s.sum, ratingAvg: Math.round((s.sum / s.count) * 100) / 100 } },
-    },
-  })));
 }
 
 async function seedBulk(n) {
@@ -97,45 +79,23 @@ async function main() {
     { name: 'Admin', email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, 10), role: 'admin' },
     { name: 'Demo Viewer', email: userEmail, passwordHash: await bcrypt.hash(userPassword, 10) },
   ]);
-  // These accounts only exist to own the sample reviews, so nobody needs their password.
-  const reviewerHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
-  const reviewers = await User.insertMany(
-    ['Jordan', 'Priya', 'Mateo', 'Aiko', 'Sam', 'Noor'].map((n) => ({
-      name: n, email: `${n.toLowerCase()}@reviewers.example`, passwordHash: reviewerHash,
-    }))
-  );
 
   const files = mediaFiles();
   const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, 'catalog.json'), 'utf8'));
+  // Local video files only apply to titles that don't stream from YouTube.
   const titles = await Title.insertMany(catalog.map((t, i) => ({
     ...t,
     featured: Boolean(t.featured),
     posterHue: (i * 47 + 13) % 360,
-    viewCount: rand(200, 20000),
-    videoFile: files.length ? files[i % files.length] : '',
+    videoFile: !t.youtubeId && files.length ? files[i % files.length] : '',
   })));
-
-  const reviews = [];
-  for (const title of titles) {
-    for (const r of reviewers) {
-      if (Math.random() < 0.55) {
-        const rating = rand(2, 5);
-        reviews.push({ user: r._id, userName: r.name, title: title._id, rating, body: pick(REVIEW_LINES[rating]) });
-      }
-    }
-  }
-  await Review.insertMany(reviews, { ordered: false });
-  await recomputeRatings();
 
   await WatchlistItem.insertMany(titles.slice(2, 6).map((t) => ({ user: demo._id, title: t._id })));
 
   if (bulkCount > 0) await seedBulk(bulkCount);
 
-  console.log(`  users: ${2 + reviewers.length} (admin: ${admin.email}, viewer: ${demo.email})`);
-  console.log(`  titles: ${titles.length + bulkCount}, reviews: ${reviews.length}`);
-  console.log(files.length
-    ? `  videos: ${files.length} file(s) from media/ assigned to titles`
-    : '  videos: none found in media/ (add .mp4 files and re-run to enable playback)');
+  console.log(`  users: 2 (admin: ${admin.email}, viewer: ${demo.email})`);
+  console.log(`  titles: ${titles.length + bulkCount} (${titles.filter((t) => t.youtubeId).length} stream from YouTube)`);
   await db.disconnect();
 }
 

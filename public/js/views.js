@@ -107,7 +107,7 @@ const Views = (() => {
         ${UI.row('Most watched', popular.items, { href: '#/browse?sort=popular', eyebrow: 'Popular' })}
       </section>
       <section class="page section reveal">
-        ${UI.row('Highest rated', top.items, { href: '#/browse?sort=top', eyebrow: 'Top rated' })}
+        ${UI.row('Highest rated', top.items.filter((t) => t.ratingCount), { href: '#/browse?sort=top', eyebrow: 'Top rated' })}
       </section>
 
       ${rows.length ? `<section class="band reveal">
@@ -229,9 +229,13 @@ const Views = (() => {
             </div>
             <p class="synopsis">${esc(t.synopsis)}</p>
             <dl class="credits">
+              ${t.director ? `<div><dt>Directed by</dt><dd>${esc(t.director)}</dd></div>` : ''}
               ${t.cast.length ? `<div><dt>Starring</dt><dd>${esc(t.cast.join(', '))}</dd></div>` : ''}
+              ${t.credit ? `<div><dt>Made by</dt><dd>© ${esc(t.credit)}</dd></div>` : ''}
+              ${t.license ? `<div><dt>License</dt><dd><a href="${esc(t.licenseUrl)}" target="_blank" rel="noopener license">${esc(t.license)}</a></dd></div>` : ''}
+              ${t.sourceUrl ? `<div><dt>Source</dt><dd><a href="${esc(t.sourceUrl)}" target="_blank" rel="noopener">Watch on YouTube</a></dd></div>` : ''}
               <div><dt>Genres</dt><dd>${t.genres.map((g) => `<a href="#/browse?genre=${encodeURIComponent(g)}">${esc(g)}</a>`).join(', ')}</dd></div>
-              <div><dt>Views</dt><dd>${t.viewCount.toLocaleString()}</dd></div>
+              ${t.viewCount ? `<div><dt>Views</dt><dd>${t.viewCount.toLocaleString()}</dd></div>` : ''}
             </dl>
           </div>
         </div>
@@ -312,35 +316,89 @@ const Views = (() => {
     }
   }
 
+  // Loads YouTube's IFrame Player API once and resolves with the YT global.
+  let ytReady;
+  function loadYouTube() {
+    if (!ytReady) {
+      ytReady = new Promise((resolve, reject) => {
+        window.onYouTubeIframeAPIReady = () => resolve(window.YT);
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.onerror = () => { ytReady = null; reject(new Error('The YouTube player could not be loaded.')); };
+        document.head.append(tag);
+      });
+    }
+    return ytReady;
+  }
+
+  // Shared progress reporter for both players: throttled while playing, forced on pause/end/leave.
+  function progressReporter(id, read) {
+    let lastSent = 0;
+    return (force = false) => {
+      const { position, duration } = read();
+      if (!duration) return;
+      const now = Date.now();
+      if (!force && now - lastSent < 10000) return;
+      lastSent = now;
+      Api.saveProgress(id, Math.floor(position), Math.floor(duration)).catch(() => {});
+    };
+  }
+
+  function credits(t) {
+    if (!t.credit && !t.license) return '';
+    return `<p class="film-credit">${t.credit ? `© ${esc(t.credit)}` : ''}${t.license
+      ? ` · <a href="${esc(t.licenseUrl)}" target="_blank" rel="noopener license">${esc(t.license)}</a>` : ''}${t.sourceUrl
+      ? ` · <a href="${esc(t.sourceUrl)}" target="_blank" rel="noopener">Watch on YouTube</a>` : ''}</p>`;
+  }
+
   async function watch(_params, id) {
     if (!(await ensureSession())) return;
     const [{ title: t }, play] = await Promise.all([Api.title(id), Api.play(id)]);
+    let screen;
+    if (t.youtubeId) screen = '<div id="yt-player"></div>';
+    else if (play.streamUrl) screen = `<video id="player" controls autoplay playsinline preload="metadata" src="${esc(play.streamUrl)}"></video>`;
+    else {
+      screen = `${UI.backdrop(t)}<div class="player-empty"><p class="label">Video unavailable</p>
+        <p>This title has no video yet. Add an MP4 to <code>media/</code> and assign it in Admin to enable playback.</p></div>`;
+    }
     view().innerHTML = `<div class="page player-page">
       <a class="back" href="#/title/${esc(t._id)}">${icon.chevL}${esc(t.name)}</a>
-      <div class="player">
-        ${play.streamUrl
-          ? `<video id="player" controls autoplay playsinline preload="metadata" src="${esc(play.streamUrl)}"></video>`
-          : `${UI.backdrop(t)}<div class="player-empty"><p class="label">Video unavailable</p>
-              <p>This demo title has no video file. Add an MP4 to <code>media/</code> and assign it in Admin to enable playback.</p></div>`}
-      </div>
+      <div class="player">${screen}</div>
       <div class="player-info">
         <h1>${esc(t.name)}</h1>
         <p class="facts">${UI.facts(t)}</p>
+        ${credits(t)}
         <p class="synopsis">${esc(t.synopsis)}</p>
       </div>
     </div>`;
 
+    if (t.youtubeId) {
+      let yt;
+      const send = progressReporter(id, () => ({ position: yt?.getCurrentTime?.() || 0, duration: yt?.getDuration?.() || 0 }));
+      let timer;
+      try {
+        const YT = await loadYouTube();
+        if (!document.getElementById('yt-player')) return; // navigated away while the API loaded
+        yt = new YT.Player('yt-player', {
+          host: 'https://www.youtube-nocookie.com',
+          videoId: t.youtubeId,
+          playerVars: { start: Math.floor(play.resumeAt || 0), rel: 0, playsinline: 1 },
+          events: {
+            onStateChange: (e) => {
+              if (e.data === YT.PlayerState.PLAYING) { clearInterval(timer); timer = setInterval(() => send(), 5000); }
+              else { clearInterval(timer); if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) send(true); }
+            },
+          },
+        });
+      } catch (err) {
+        UI.toast(err.message, true);
+      }
+      return () => { clearInterval(timer); send(true); yt?.destroy?.(); };
+    }
+
     const video = document.getElementById('player');
     if (!video) return;
-
-    let lastSent = 0;
-    const send = (force = false) => {
-      if (!video.duration || Number.isNaN(video.duration)) return;
-      const now = Date.now();
-      if (!force && now - lastSent < 10000) return;
-      lastSent = now;
-      Api.saveProgress(id, Math.floor(video.currentTime), Math.floor(video.duration)).catch(() => {});
-    };
+    const send = progressReporter(id, () => ({ position: video.currentTime, duration: video.duration || 0 }));
     video.addEventListener('loadedmetadata', () => {
       if (play.resumeAt > 0 && play.resumeAt < video.duration - 5) video.currentTime = play.resumeAt;
     }, { once: true });
@@ -472,7 +530,55 @@ const Views = (() => {
     });
   }
 
+  function account() {
+    if (!requireLogin()) return;
+    const { user } = Api.session;
+    if (Api.isGuest) {
+      view().innerHTML = `<div class="page narrow">
+        ${pageHead('Guest account', '', 'Account')}
+        <p class="note">You're using the shared guest account. Its list and playback positions are visible to every guest, and it can't be deleted. <a href="#/register">Create your own account</a> to keep things private.</p>
+        <div class="form-actions"><button class="btn outline" id="sign-out">Exit guest mode</button></div>
+      </div>`;
+      document.getElementById('sign-out').addEventListener('click', () => { Api.logout(); location.hash = '#/'; });
+      return;
+    }
+    view().innerHTML = `<div class="page narrow">
+      ${pageHead(esc(user.name), esc(user.email), 'Account')}
+      <section class="account-panel">
+        <h2>Your data</h2>
+        <p>StreamBox stores your name, email, list, playback progress, and reviews. The <a class="text-link" href="#/privacy">privacy policy</a> explains exactly what is kept and where.</p>
+        <div class="form-actions"><button class="btn outline" id="sign-out">Sign out</button></div>
+      </section>
+      <section class="account-panel danger-zone">
+        <h2>Delete account</h2>
+        <p>Permanently deletes your account, My List, playback progress, and reviews. This can't be undone.</p>
+        <p class="error-text" id="delete-error"></p>
+        <div class="form-actions"><button class="btn danger-fill" id="delete-account">Delete my account</button></div>
+      </section>
+    </div>`;
+    document.getElementById('sign-out').addEventListener('click', () => { Api.logout(); location.hash = '#/'; });
+    document.getElementById('delete-account').addEventListener('click', async (e) => {
+      if (!confirm('Delete your account and everything saved to it? This cannot be undone.')) return;
+      e.currentTarget.disabled = true;
+      try {
+        await Api.deleteAccount();
+        Api.logout();
+        UI.toast('Your account has been deleted.');
+        location.hash = '#/';
+      } catch (err) {
+        document.getElementById('delete-error').textContent = err.message;
+        e.currentTarget.disabled = false;
+      }
+    });
+  }
+
+  const legal = (page) => async () => {
+    view().innerHTML = await Legal[page]();
+    view().querySelector(`[data-legal="${page}"]`)?.setAttribute('aria-current', 'page');
+  };
+
   const notFound = () => { view().innerHTML = '<div class="page"><div class="state"><h2>Page not found</h2><p>The page you’re looking for doesn’t exist.</p><a class="btn secondary" href="#/">Back to home</a></div></div>'; };
 
-  return { home, browse, search, title, watch, myList, login: (p) => authForm(p, 'login'), register: (p) => authForm(p, 'register'), admin, notFound };
+  return { home, browse, search, title, watch, myList, account,
+    terms: legal('terms'), privacy: legal('privacy'), credits: legal('credits'), copyright: legal('copyright'), login: (p) => authForm(p, 'login'), register: (p) => authForm(p, 'register'), admin, notFound };
 })();

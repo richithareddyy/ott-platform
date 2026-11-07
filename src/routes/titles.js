@@ -7,7 +7,7 @@ const { GENRES, MATURITY } = Title;
 const { asyncHandler, assertObjectId, HttpError, isDuplicateKey } = require('../utils/http');
 const { validate } = require('../utils/validate');
 const { encodeCursor, decodeCursor, afterCursor } = require('../utils/cursor');
-const { optionalAuth, requireAuth, requireAdmin, signStreamToken } = require('../middleware/auth');
+const { optionalAuth, requireAuth, requireAccount, requireAdmin, signStreamToken } = require('../middleware/auth');
 const { applyRatingDelta } = require('../services/ratings');
 
 const router = express.Router();
@@ -24,6 +24,14 @@ const titleRules = {
   durationMinutes: { type: 'number', required: true, integer: true, min: 1, max: 1000 },
   cast: { type: 'stringArray', maxItems: 20 },
   videoFile: { type: 'string', maxLength: 200, pattern: /^[\w.-]*$/ },
+  youtubeId: { type: 'string', pattern: /^[\w-]{11}$/ },
+  still: { type: 'string', enum: ['maxresdefault', 'maxres1', 'maxres2', 'maxres3'] },
+  stillZoom: { type: 'number', min: 1, max: 1.6 },
+  director: { type: 'string', maxLength: 80 },
+  credit: { type: 'string', maxLength: 120 },
+  license: { type: 'string', maxLength: 40 },
+  licenseUrl: { type: 'string', maxLength: 200, pattern: /^https:\/\// },
+  sourceUrl: { type: 'string', maxLength: 200, pattern: /^https:\/\// },
   posterHue: { type: 'number', integer: true, min: 0, max: 359 },
   featured: { type: 'boolean' },
 };
@@ -189,6 +197,7 @@ router.get(
 router.put(
   '/:id/reviews/mine',
   requireAuth,
+  requireAccount,
   forbidDemo,
   asyncHandler(async (req, res) => {
     const id = assertObjectId(req.params.id, 'title id');

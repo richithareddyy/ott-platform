@@ -35,13 +35,26 @@ const UI = (() => {
       : '';
   }
 
+  // Films that stream from YouTube use a frame from the film itself (YouTube's
+  // auto-generated stills, which carry no logos or title text); anything else
+  // falls back to the generated artwork. If a high-res still is missing, the
+  // image swaps to the standard-size one.
+  function art(t, { eager = false } = {}) {
+    if (!t.youtubeId) return Posters.svg(t, { wide: true });
+    const base = `https://i.ytimg.com/vi/${encodeURIComponent(t.youtubeId)}`;
+    const still = t.still || 'maxresdefault';
+    const fallback = still === 'maxresdefault' ? 'sddefault' : still.replace('maxres', 'sd');
+    const zoom = Number(t.stillZoom) > 1 ? ` style="transform:scale(${Number(t.stillZoom)})"` : '';
+    return `<img class="art" src="${base}/${esc(still)}.jpg" data-fallback="${base}/${esc(fallback)}.jpg" alt=""${zoom} ${eager ? '' : 'loading="lazy"'} decoding="async" onerror="this.onerror=null;this.src=this.dataset.fallback" />`;
+  }
+
   function poster(t, { progress } = {}) {
-    return `<div class="poster">${Posters.svg(t)}${progress != null
+    return `<div class="poster">${art(t)}${progress != null
       ? `<div class="progress" role="progressbar" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100" aria-label="${progress}% watched"><i style="width:${progress}%"></i></div>`
       : ''}</div>`;
   }
 
-  const backdrop = (t) => `<div class="backdrop" aria-hidden="true">${Posters.svg(t, { wide: true })}</div>`;
+  const backdrop = (t) => `<div class="backdrop" aria-hidden="true">${art(t, { eager: true })}</div>`;
 
   // Continue-watching items carry positionSeconds/durationSeconds alongside the title fields.
   function card(t, { progress = false } = {}) {
@@ -93,5 +106,5 @@ const UI = (() => {
     el.textContent = details ? `${err.message}: ${details}` : err.message;
   }
 
-  return { esc, fmtDuration, stars, kind, icon, facts, rating, poster, backdrop, card, row, toast, loading, errorBlock, formError };
+  return { esc, fmtDuration, stars, kind, icon, facts, rating, art, poster, backdrop, card, row, toast, loading, errorBlock, formError };
 })();

@@ -10,6 +10,11 @@ const App = (() => {
     [/^\/login$/, Views.login, null],
     [/^\/register$/, Views.register, null],
     [/^\/admin$/, Views.admin, 'admin'],
+    [/^\/account$/, Views.account, null],
+    [/^\/terms$/, Views.terms, null],
+    [/^\/privacy$/, Views.privacy, null],
+    [/^\/credits$/, Views.credits, null],
+    [/^\/copyright$/, Views.copyright, null],
   ];
 
   let cleanup = null;
@@ -55,11 +60,11 @@ const App = (() => {
     if (!s) {
       account.innerHTML = '<a class="btn text small" href="#/login">Sign in</a><button class="btn primary small" id="demo-btn">Try the demo</button>';
     } else if (Api.isGuest) {
-      account.innerHTML = '<span class="who" title="Shared demo account">Guest</span>'
+      account.innerHTML = '<a class="who" href="#/account" title="Shared demo account">Guest</a>'
         + '<a class="btn text small accent" href="#/register">Sign up</a>'
         + '<button class="btn text small" id="logout">Exit</button>';
     } else {
-      account.innerHTML = `<span class="who">${UI.esc(s.user.name)}</span><button class="btn text small" id="logout">Sign out</button>`;
+      account.innerHTML = `<a class="who" href="#/account" title="Account">${UI.esc(s.user.name)}</a><button class="btn text small" id="logout">Sign out</button>`;
     }
     document.getElementById('logout')?.addEventListener('click', () => { Api.logout(); location.hash = '#/'; });
     document.getElementById('demo-btn')?.addEventListener('click', async (e) => {

@@ -20,7 +20,7 @@ The backend handles duplicate list entries, out-of-order playback updates, and c
 
 - **Accounts:** registration and login with bcrypt password hashing and JWT authentication, plus user and admin roles.
 - **One-click demo:** **Try the demo** signs visitors into a shared guest account. Signed-out visitors who press Play or + My List are moved into it automatically, with no sign-in wall. Guests can't post public reviews.
-- **Poster art:** every title gets original, procedurally generated SVG artwork. The scene is chosen from the title's genres (city at night, planets, haunted forest, castle, underwater, and more), and the palette and layout are seeded from the title, so each poster is unique and stable.
+- **Films and artwork:** the catalog is nine Creative Commons open movies by the Blender Foundation and Blender Studio, played through YouTube's IFrame Player API in privacy-enhanced mode, with watch progress saved from the player. Artwork is an auto-generated frame from each film, cropped past letterbox bars. Titles without a YouTube video fall back to procedurally generated SVG artwork.
 - **Catalog:** home page with featured titles and per-genre rows. Browse by genre, type, and sort order, with infinite "load more" paging. Full-text search across titles, cast, and synopses.
 - **Streaming:** HTTP range requests (`206 Partial Content`) so players can seek and buffer in chunks. Short-lived stream tokens are scoped to one title.
 - **Watch progress:** the player saves position every 10 seconds and on pause, and resumes where you left off. A "Continue watching" row lists unfinished titles.
@@ -56,7 +56,7 @@ npm start                    # http://localhost:4000
 
 Sign in with the demo viewer or admin account defined in `.env` (`SEED_USER_*` and `SEED_ADMIN_*`).
 
-**Video files.** No videos are included in this repository. To enable playback, copy `.mp4` or `.webm` files into `media/` and re-run `npm run seed`, which assigns them to titles. You can also set a title's video file from the Admin page.
+**Video files.** The seeded films stream from YouTube. For titles you add without a YouTube ID, copy `.mp4` or `.webm` files into `media/` and assign one from the Admin page; the range-request streaming endpoint serves them.
 
 **Run everything in Docker.** To run the app in a container as well:
 
@@ -89,7 +89,7 @@ Free Render services sleep when idle, so the first request after a pause can tak
 |---|---|
 | `npm start` | Start the server |
 | `npm run dev` | Start with auto-restart on file changes |
-| `npm run seed` | Reset the database and load the sample catalog |
+| `npm run seed` | Reset the database and load the film catalog |
 | `npm run seed:bulk` | Seed plus 50,000 synthetic titles for performance testing |
 | `npm test` | Run the integration test suite (uses a separate `_test` database) |
 | `npm run loadtest` | Run the concurrency load test (uses a separate `_load` database) |

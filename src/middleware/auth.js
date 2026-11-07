@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const User = require('../models/User');
 const { HttpError } = require('../utils/http');
 
 function signAccessToken(user) {
@@ -58,9 +59,20 @@ function optionalAuth(req, _res, next) {
   next();
 }
 
+// Tokens outlive deleted accounts, so routes that write per-user data confirm
+// the account still exists before saving anything for it.
+async function requireAccount(req, _res, next) {
+  try {
+    if (!(await User.exists({ _id: req.user.id }))) return next(new HttpError(401, 'This account no longer exists'));
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 function requireAdmin(req, _res, next) {
   if (!req.user || req.user.role !== 'admin') return next(new HttpError(403, 'Admin access required'));
   next();
 }
 
-module.exports = { signAccessToken, signStreamToken, verify, requireAuth, optionalAuth, requireAdmin };
+module.exports = { signAccessToken, signStreamToken, verify, requireAuth, requireAccount, optionalAuth, requireAdmin };

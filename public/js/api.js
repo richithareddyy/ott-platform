@@ -54,6 +54,7 @@ const Api = (() => {
     async login(email, password) { setSession(await request('POST', '/auth/login', { email, password })); },
     async register(name, email, password) { setSession(await request('POST', '/auth/register', { name, email, password })); },
     logout() { setSession(null); },
+    deleteAccount: () => request('DELETE', '/me'),
 
     genres: () => request('GET', '/titles/genres'),
     rows: () => request('GET', '/titles/rows'),

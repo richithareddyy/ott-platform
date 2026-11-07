@@ -1,13 +1,16 @@
 const express = require('express');
 const Title = require('../models/Title');
+const User = require('../models/User');
+const Review = require('../models/Review');
 const WatchlistItem = require('../models/WatchlistItem');
 const WatchProgress = require('../models/WatchProgress');
 const { asyncHandler, assertObjectId, HttpError, isDuplicateKey } = require('../utils/http');
 const { validate } = require('../utils/validate');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAccount } = require('../middleware/auth');
+const { applyRatingDelta } = require('../services/ratings');
 
 const router = express.Router();
-router.use(requireAuth);
+router.use(requireAuth, requireAccount);
 
 const COMPLETE_RATIO = 0.95;
 
@@ -124,6 +127,24 @@ router.delete(
   asyncHandler(async (req, res) => {
     const titleId = assertObjectId(req.params.titleId, 'title id');
     await WatchProgress.deleteOne({ user: req.user.id, title: titleId });
+    res.status(204).end();
+  })
+);
+
+// Deletes the caller's account and everything tied to it. The shared guest
+// account is excluded, since deleting it would affect every guest.
+router.delete(
+  '/',
+  asyncHandler(async (req, res) => {
+    if (req.user.role === 'demo') throw new HttpError(403, 'The shared guest account cannot be deleted.');
+    const reviews = await Review.find({ user: req.user.id }).select('title rating').lean();
+    await Promise.all(reviews.map((r) => applyRatingDelta(r.title, -1, -r.rating)));
+    await Promise.all([
+      Review.deleteMany({ user: req.user.id }),
+      WatchlistItem.deleteMany({ user: req.user.id }),
+      WatchProgress.deleteMany({ user: req.user.id }),
+      User.deleteOne({ _id: req.user.id }),
+    ]);
     res.status(204).end();
   })
 );

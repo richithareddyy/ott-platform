@@ -4,7 +4,7 @@ const GENRES = [
   'Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary',
   'Drama', 'Family', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller',
 ];
-const MATURITY = ['G', 'PG', 'PG-13', 'R', 'TV-Y', 'TV-PG', 'TV-14', 'TV-MA'];
+const MATURITY = ['G', 'PG', 'PG-13', 'R', 'TV-Y', 'TV-PG', 'TV-14', 'TV-MA', 'NR'];
 
 const titleSchema = new Schema(
   {
@@ -20,6 +20,16 @@ const titleSchema = new Schema(
     durationMinutes: { type: Number, min: 1, max: 1000, required: true },
     cast: { type: [String], default: [] },
     videoFile: { type: String, default: '' },
+    youtubeId: { type: String, default: '', match: /^([\w-]{11})?$/ },
+    // Which YouTube frame to use as artwork, and how far to zoom past letterbox bars.
+    still: { type: String, enum: ['maxresdefault', 'maxres1', 'maxres2', 'maxres3'], default: 'maxresdefault' },
+    stillZoom: { type: Number, min: 1, max: 1.6, default: 1 },
+    director: { type: String, trim: true, maxlength: 80, default: '' },
+    // Attribution for openly licensed films: who made it and under which license.
+    credit: { type: String, trim: true, maxlength: 120, default: '' },
+    license: { type: String, trim: true, maxlength: 40, default: '' },
+    licenseUrl: { type: String, trim: true, maxlength: 200, default: '' },
+    sourceUrl: { type: String, trim: true, maxlength: 200, default: '' },
     posterHue: { type: Number, min: 0, max: 359, default: 210 },
     featured: { type: Boolean, default: false },
 
@@ -52,7 +62,7 @@ titleSchema.index(
 
 // Fields returned for cards/rows; keeps list payloads small.
 titleSchema.statics.CARD_FIELDS =
-  'name type genres releaseYear maturityRating durationMinutes posterHue ratingAvg ratingCount viewCount';
+  'name type genres releaseYear maturityRating durationMinutes posterHue youtubeId still stillZoom ratingAvg ratingCount viewCount';
 
 module.exports = model('Title', titleSchema);
 module.exports.GENRES = GENRES;

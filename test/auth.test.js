@@ -70,6 +70,29 @@ describe('auth', () => {
     assert.equal(login.status, 401);
   });
 
+  it('deletes an account with its reviews, list, and progress', async () => {
+    const { makeUser, makeTitle } = require('./helpers');
+    const User = require('../src/models/User');
+    const Title = require('../src/models/Title');
+    const Review = require('../src/models/Review');
+    const t = await makeTitle();
+    const { user, auth } = await makeUser();
+    await api().put(`/api/titles/${t._id}/reviews/mine`).set(auth).send({ rating: 4 }).expect(201);
+    await api().put(`/api/me/watchlist/${t._id}`).set(auth).expect(201);
+
+    await api().delete('/api/me').set(auth).expect(204);
+    assert.equal(await User.countDocuments({ _id: user._id }), 0);
+    // The old token must not be able to write data for the deleted account.
+    await api().put(`/api/me/watchlist/${t._id}`).set(auth).expect(401);
+    await api().put(`/api/titles/${t._id}/reviews/mine`).set(auth).send({ rating: 5 }).expect(401);
+    assert.equal(await Review.countDocuments({ user: user._id }), 0);
+    const fresh = await Title.findById(t._id).lean();
+    assert.deepEqual([fresh.ratingCount, fresh.ratingSum], [0, 0]);
+
+    const { body } = await api().post('/api/auth/demo');
+    await api().delete('/api/me').set({ Authorization: `Bearer ${body.token}` }).expect(403);
+  });
+
   it('protects admin routes', async () => {
     const { auth } = await makeUser();
     const noAuth = await api().post('/api/titles').send({});
