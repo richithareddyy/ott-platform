@@ -40,7 +40,10 @@ const App = (() => {
     } catch (err) {
       if (id === renderId) el.innerHTML = `<div class="page">${UI.errorBlock(err)}</div>`;
     }
-    if (id === renderId) updateRowNav();
+    if (id === renderId) {
+      updateRowNav();
+      watchReveals();
+    }
     el.focus({ preventScroll: true });
   }
 
@@ -50,7 +53,7 @@ const App = (() => {
     document.body.classList.toggle('is-admin', s?.user.role === 'admin');
     const account = document.getElementById('account');
     if (!s) {
-      account.innerHTML = '<a class="btn text small" href="#/login">Sign in</a><button class="btn primary small" id="demo-btn">Try demo</button>';
+      account.innerHTML = '<a class="btn text small" href="#/login">Sign in</a><button class="btn primary small" id="demo-btn">Try the demo</button>';
     } else if (Api.isGuest) {
       account.innerHTML = '<span class="who" title="Shared demo account">Guest</span>'
         + '<a class="btn text small accent" href="#/register">Sign up</a>'
@@ -67,6 +70,18 @@ const App = (() => {
         render();
       } catch (err) { UI.toast(err.message, true); paintAccount(); }
     });
+  }
+
+  // Sections fade up once as they scroll into view.
+  const revealer = 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('in');
+      revealer.unobserve(e.target);
+    }), { rootMargin: '0px 0px -6% 0px' })
+    : null;
+  function watchReveals() {
+    document.querySelectorAll('.reveal:not(.in)').forEach((el) => (revealer ? revealer.observe(el) : el.classList.add('in')));
   }
 
   // Row arrows are hidden at either end of a row.
@@ -103,6 +118,7 @@ const App = (() => {
 
   document.getElementById('footer-author').textContent = SITE.author;
   document.getElementById('footer-source').href = SITE.github;
+  document.getElementById('gh-link').href = SITE.github;
 
   paintAccount();
   render();

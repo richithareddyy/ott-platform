@@ -55,19 +55,19 @@ const UI = (() => {
     </a>`;
   }
 
-  function row(heading, items, { href, progress = false } = {}) {
+  function row(heading, items, { href, progress = false, eyebrow } = {}) {
     if (!items.length) return '';
-    return `<section class="row">
-      <header class="row-head">
-        <h2>${esc(heading)}</h2>
-        ${href ? `<a class="row-link" href="${esc(href)}">See all</a>` : ''}
+    return `<div class="row">
+      <header class="section-head row-head">
+        <div>${eyebrow ? `<p class="eyebrow">${esc(eyebrow)}</p>` : ''}<h2>${esc(heading)}</h2></div>
+        ${href ? `<a class="row-link" href="${esc(href)}">See all ${icon.chevR}</a>` : ''}
       </header>
       <div class="row-viewport">
         <button class="row-nav prev" data-scroll="-1" aria-label="Scroll ${esc(heading)} left" tabindex="-1">${icon.chevL}</button>
         <div class="row-track">${items.map((t) => card(t, { progress })).join('')}</div>
         <button class="row-nav next" data-scroll="1" aria-label="Scroll ${esc(heading)} right" tabindex="-1">${icon.chevR}</button>
       </div>
-    </section>`;
+    </div>`;
   }
 
   let toastTimer;

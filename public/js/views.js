@@ -35,48 +35,109 @@ const Views = (() => {
   const guestNote = (what) =>
     `<p class="note">You’re using the shared guest account. <a href="#/register?next=${encodeURIComponent(location.hash.slice(1))}">Create a free account</a> to ${what}.</p>`;
 
-  const pageHead = (title, sub = '') => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</header>`;
+  const pageHead = (title, sub = '', eyebrow = '') =>
+    `<header class="page-head">${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}<h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</header>`;
+
+  // Faint columns of posters behind the hero, offset so they read as a wall.
+  function posterWall(items) {
+    if (!items.length) return '';
+    const cols = Array.from({ length: 10 }, (_, c) => {
+      const stack = [0, 1, 2].map((i) => UI.poster(items[(c * 3 + i) % items.length])).join('');
+      return `<div class="wall-col" style="--shift:${[-40, -140, -80, -170, -20, -120, -60, -150, -30, -100][c]}px">${stack}</div>`;
+    });
+    return `<div class="wall" aria-hidden="true">${cols.join('')}</div>`;
+  }
+
+  function spotlightBody(t) {
+    return `<div class="spot-art">${UI.backdrop(t)}<span class="spot-tag">${esc(UI.kind(t))}</span></div>
+      <div class="spot-panel">
+        <p class="eyebrow">${esc(t.genres.join(' · '))}</p>
+        <h3>${esc(t.name)}</h3>
+        <p class="facts">${UI.facts(t)}${t.ratingCount ? `<span class="dot">·</span>${UI.rating(t)}` : ''}</p>
+        <p class="spot-synopsis">${esc(t.synopsis)}</p>
+        ${t.cast.length ? `<p class="spot-cast"><span>Starring</span> ${esc(t.cast.join(', '))}</p>` : ''}
+        <div class="actions">
+          <a class="btn primary" href="#/watch/${esc(t._id)}">${icon.play}Play</a>
+          <a class="btn outline" href="#/title/${esc(t._id)}">Details</a>
+        </div>
+      </div>`;
+  }
 
   async function home() {
-    const [{ featured, rows }, cont, popular, top] = await Promise.all([
+    const [{ featured, rows }, cont, popular, top, fresh] = await Promise.all([
       Api.rows(),
       Api.session ? Api.continueWatching().catch(() => ({ items: [] })) : { items: [] },
       Api.listTitles({ sort: 'popular', limit: 16 }),
       Api.listTitles({ sort: 'top', limit: 16 }),
+      Api.listTitles({ sort: 'newest', limit: 16 }),
     ]);
     const hero = featured[0];
+    const picks = popular.items.filter((t) => !hero || t._id !== hero._id).slice(0, 4);
+    const first = picks.length ? (await Api.title(picks[0]._id)).title : null;
+
     view().innerHTML = `
-      ${!Api.session ? `<section class="demo-strip" aria-label="Live demo"><div class="page">
-        <div class="demo-copy">
-          <p class="kicker">Portfolio project · ${esc(SITE.author)}</p>
-          <p class="demo-line">Explore the full app without an account: browse, search, play, and build your own list.</p>
-        </div>
-        <div class="demo-actions">
-          <button class="btn primary large" data-start-demo>${icon.play}Try the live demo</button>
-          <a class="btn text" href="${esc(SITE.github)}" target="_blank" rel="noopener">Source on GitHub</a>
-        </div>
-      </div></section>` : ''}
       ${hero ? `<section class="hero">
-        ${UI.backdrop(hero)}
+        ${posterWall(popular.items)}
         <div class="page hero-body">
-          <p class="kicker">Featured ${UI.kind(hero).toLowerCase()}</p>
-          <h1 class="display">${esc(hero.name)}</h1>
-          <p class="facts">${UI.facts(hero)}<span class="dot">·</span>${esc(hero.genres.join(', '))}${hero.ratingCount ? `<span class="dot">·</span>${UI.rating(hero)}` : ''}</p>
-          <p class="synopsis">${esc(hero.synopsis)}</p>
+          <p class="eyebrow">Featured ${esc(UI.kind(hero).toLowerCase())} · ${esc(hero.genres[0])}</p>
+          <h1 class="hero-title">${esc(hero.name)}</h1>
+          <p class="hero-synopsis">${esc(hero.synopsis)}</p>
+          <p class="facts">${UI.facts(hero)}${hero.ratingCount ? `<span class="dot">·</span>${UI.rating(hero)}` : ''}</p>
           <div class="actions">
-            <a class="btn primary" href="#/watch/${esc(hero._id)}">${icon.play}Play</a>
-            <a class="btn secondary" href="#/title/${esc(hero._id)}">${icon.info}More info</a>
+            <a class="btn primary large" href="#/watch/${esc(hero._id)}">${icon.play}Play</a>
+            <a class="btn outline large" href="#/title/${esc(hero._id)}">More info</a>
+          </div>
+          ${!Api.session ? '<p class="hero-hint">No account needed. <button class="link-btn" data-start-demo>Try the demo</button> to browse as a guest.</p>' : ''}
+        </div>
+      </section>` : ''}
+
+      ${cont.items.length ? `<section class="page section reveal">
+        ${UI.row('Continue watching', cont.items, { progress: true, eyebrow: 'Pick up where you left off' })}
+      </section>` : ''}
+
+      ${first ? `<section class="page section reveal">
+        <header class="section-head"><p class="eyebrow">Trending now</p><h2>What everyone’s watching</h2></header>
+        <div class="tabs" role="tablist" aria-label="Trending titles">
+          ${picks.map((t, i) => `<button class="tab" role="tab" aria-selected="${i === 0}" data-spot="${esc(t._id)}">${esc(t.name)}</button>`).join('')}
+        </div>
+        <div class="spot" id="spot" role="tabpanel">${spotlightBody(first)}</div>
+      </section>` : ''}
+
+      <section class="page section reveal">
+        ${UI.row('Most watched', popular.items, { href: '#/browse?sort=popular', eyebrow: 'Popular' })}
+      </section>
+      <section class="page section reveal">
+        ${UI.row('Highest rated', top.items, { href: '#/browse?sort=top', eyebrow: 'Top rated' })}
+      </section>
+
+      ${rows.length ? `<section class="band reveal">
+        <div class="page">
+          <header class="section-head"><p class="eyebrow">Genres</p><h2>Browse by genre</h2></header>
+          <div class="genre-grid">
+            ${rows.map((r) => `<a class="genre-tile" href="#/browse?genre=${encodeURIComponent(r.genre)}">
+              <span class="genre-stack" aria-hidden="true">${r.titles.slice(0, 3).map((t) => UI.poster(t)).join('')}</span>
+              <span class="genre-name">${esc(r.genre)}</span>
+              <span class="genre-top">${esc(r.titles[0].name)}</span>
+            </a>`).join('')}
           </div>
         </div>
       </section>` : ''}
-      <div class="page rows">
-        ${UI.row('Continue watching', cont.items, { progress: true })}
-        ${UI.row('Most watched', popular.items, { href: '#/browse?sort=popular' })}
-        ${UI.row('Highest rated', top.items, { href: '#/browse?sort=top' })}
-        ${rows.map((r) => UI.row(r.genre, r.titles, { href: `#/browse?genre=${encodeURIComponent(r.genre)}` })).join('')}
-        ${!featured.length && !rows.length ? '<div class="state"><h2>No titles yet</h2><p>Run <code>npm run seed</code> to load the sample catalog.</p></div>' : ''}
-      </div>`;
+
+      <section class="page section reveal">
+        ${UI.row('New releases', fresh.items, { href: '#/browse?sort=newest', eyebrow: 'Just added' })}
+      </section>
+      ${!featured.length && !rows.length ? '<div class="page"><div class="state"><h2>No titles yet</h2><p>Run <code>npm run seed</code> to load the sample catalog.</p></div></div>' : ''}`;
+
     view().querySelector('[data-start-demo]')?.addEventListener('click', (e) => startDemo(e.currentTarget));
+
+    const spot = document.getElementById('spot');
+    const cache = new Map(first ? [[first._id, first]] : []);
+    view().querySelectorAll('[data-spot]').forEach((tab) => tab.addEventListener('click', async () => {
+      view().querySelectorAll('[data-spot]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+      const id = tab.dataset.spot;
+      if (!cache.has(id)) cache.set(id, (await Api.title(id)).title);
+      if (tab.getAttribute('aria-selected') === 'true') spot.innerHTML = spotlightBody(cache.get(id));
+    }));
   }
 
   async function browse(params) {
@@ -84,7 +145,7 @@ const Views = (() => {
     const state = { genre: params.get('genre') || '', type: params.get('type') || '', sort: params.get('sort') || 'popular' };
     const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
     view().innerHTML = `<div class="page">
-      ${pageHead(state.genre ? esc(state.genre) : 'Browse')}
+      ${pageHead(state.genre ? esc(state.genre) : 'All titles', '', 'Browse')}
       <form class="filters" id="filters" aria-label="Filter titles">
         <label class="select"><span>Genre</span>
           <select name="genre">${opt('', 'All', state.genre)}${genres.map((g) => opt(g, g, state.genre)).join('')}</select></label>
@@ -159,8 +220,8 @@ const Views = (() => {
         <div class="page detail-inner">
           <div class="detail-poster">${UI.poster(t)}</div>
           <div class="detail-info">
-            <p class="kicker">${UI.kind(t)}</p>
-            <h1 class="display">${esc(t.name)}</h1>
+            <p class="eyebrow">${esc(UI.kind(t))} · ${esc(t.genres.join(' · '))}</p>
+            <h1 class="detail-title">${esc(t.name)}</h1>
             <p class="facts">${UI.facts(t)}${t.ratingCount ? `<span class="dot">·</span>${UI.rating(t)}<span class="muted-count">(${t.ratingCount})</span>` : ''}</p>
             <div class="actions">
               <a class="btn primary" href="#/watch/${esc(t._id)}">${icon.play}${resume ? 'Resume' : 'Play'}</a>
@@ -294,7 +355,7 @@ const Views = (() => {
     if (!(await ensureSession())) return;
     const { items } = await Api.watchlist();
     view().innerHTML = `<div class="page">
-      ${pageHead('My List', items.length ? `${items.length} title${items.length === 1 ? '' : 's'}` : '')}
+      ${pageHead('My List', items.length ? `${items.length} title${items.length === 1 ? '' : 's'} saved` : '', 'Your library')}
       ${Api.isGuest ? guestNote('keep a list that’s only yours') : ''}
       ${items.length ? `<div class="grid">${items.map((t) => UI.card(t)).join('')}</div>`
         : '<div class="state"><h2>Your list is empty</h2><p>Use My List on any title to save it here.</p><a class="btn secondary" href="#/browse">Browse titles</a></div>'}

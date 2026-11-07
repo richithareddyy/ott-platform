@@ -9,7 +9,8 @@ function dbHint(err) {
   }
   if (/bad auth|authentication failed/i.test(err.message)) return 'Check the database username and password in MONGO_URI.';
   if (/ENOTFOUND|querySrv/i.test(err.message)) return 'Check the cluster host in MONGO_URI.';
-  if (/timed out|ECONNREFUSED/i.test(err.message)) return 'Check that Atlas Network Access allows this server.';
+  if (/ECONNREFUSED/.test(err.message)) return 'Nothing is listening at that address. Locally, start MongoDB with `docker compose up -d`.';
+  if (/timed out/i.test(err.message)) return 'Check that Atlas Network Access allows this server.';
   return null;
 }
 
