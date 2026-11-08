@@ -9,7 +9,7 @@ const UI = (() => {
   const esc = (v) =>
     String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-  const fmtDuration = (min) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min}m`);
+  const fmtDuration = (min) => (min >= 60 ? `${Math.floor(min / 60)} hr ${min % 60} min` : `${min} min`);
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
   const kind = (t) => (t.type === 'series' ? 'Series' : 'Film');
 

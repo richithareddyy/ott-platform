@@ -49,45 +49,83 @@ const Views = (() => {
   }
 
   function spotlightBody(t) {
-    return `<div class="spot-art">${UI.backdrop(t)}<span class="spot-tag">${esc(UI.kind(t))}</span></div>
+    return `<div class="spot-art">${UI.backdrop(t)}</div>
       <div class="spot-panel">
-        <p class="eyebrow">${esc(t.genres.join(' · '))}</p>
-        <h3>${esc(t.name)}</h3>
+        <p class="meta-line">${esc(t.genres.join(' · '))}</p>
+        <h3 class="film-title">${esc(t.name)}</h3>
         <p class="facts">${UI.facts(t)}${t.ratingCount ? `<span class="dot">·</span>${UI.rating(t)}` : ''}</p>
         <p class="spot-synopsis">${esc(t.synopsis)}</p>
-        ${t.cast.length ? `<p class="spot-cast"><span>Starring</span> ${esc(t.cast.join(', '))}</p>` : ''}
+        ${t.director ? `<p class="spot-cast"><span>Directed by</span> ${esc(t.director)}</p>` : ''}
         <div class="actions">
           <a class="btn primary" href="#/watch/${esc(t._id)}">${icon.play}Play</a>
           <a class="btn outline" href="#/title/${esc(t._id)}">Details</a>
         </div>
+        ${t.credit ? `<p class="spot-credit">© ${esc(t.credit)}${t.license ? ` · ${esc(t.license)}` : ''}</p>` : ''}
       </div>`;
   }
 
+  const sectionHead = (eyebrow, heading, link = '') =>
+    `<header class="section-head row-head"><div><p class="eyebrow">${eyebrow}</p><h2>${heading}</h2></div>${link}</header>`;
+
+  // Short films as a small editorial grid rather than another carousel.
+  function shorts(items) {
+    if (items.length < 2) return '';
+    return `<section class="page section reveal">
+      ${sectionHead('Shorts', 'Under ten minutes')}
+      <div class="shorts">${items.map((t) => `<a class="short" href="#/title/${esc(t._id)}">
+        <span class="short-art">${UI.art(t)}<span class="runtime">${esc(t.durationMinutes)} min</span></span>
+        <span class="film-title">${esc(t.name)}</span>
+        <span class="meta-line">${esc(t.releaseYear)} · ${esc(t.genres.slice(0, 2).join(' · '))}</span>
+      </a>`).join('')}</div>
+    </section>`;
+  }
+
+  // Every film placed on a timeline by release year.
+  function archive(items) {
+    if (items.length < 3) return '';
+    const sorted = [...items].sort((a, b) => a.releaseYear - b.releaseYear);
+    const first = sorted[0].releaseYear;
+    const last = sorted[sorted.length - 1].releaseYear;
+    return `<section class="page section reveal">
+      ${sectionHead(`The archive · ${first}–${last}`, 'Open films, in the order they were made')}
+      <ol class="archive" aria-label="Films by release year">${sorted.map((t) => `<li>
+        <a class="archive-item" href="#/title/${esc(t._id)}">
+          <span class="archive-year">${esc(t.releaseYear)}</span>
+          <span class="archive-art">${UI.art(t)}</span>
+          <span class="film-title">${esc(t.name)}</span>
+          <span class="meta-line">${esc(t.credit || UI.kind(t))}</span>
+        </a>
+      </li>`).join('')}</ol>
+    </section>`;
+  }
+
   async function home() {
-    const [{ featured, rows }, cont, popular, top, fresh] = await Promise.all([
+    const [{ featured, rows }, cont, popular, all] = await Promise.all([
       Api.rows(),
       Api.session ? Api.continueWatching().catch(() => ({ items: [] })) : { items: [] },
       Api.listTitles({ sort: 'popular', limit: 16 }),
-      Api.listTitles({ sort: 'top', limit: 16 }),
-      Api.listTitles({ sort: 'newest', limit: 16 }),
+      Api.listTitles({ sort: 'newest', limit: 50 }),
     ]);
-    const hero = featured[0];
-    const picks = popular.items.filter((t) => !hero || t._id !== hero._id).slice(0, 4);
-    const first = picks.length ? (await Api.title(picks[0]._id)).title : null;
+    // The featured screening changes daily, cycling through the featured titles.
+    const day = Math.floor(Date.now() / 86400000);
+    const hero = featured.length ? featured[day % featured.length] : null;
+    const program = all.items.filter((t) => !hero || t._id !== hero._id).slice(0, 5);
+    const first = program.length ? (await Api.title(program[0]._id)).title : null;
+    const watched = popular.items.filter((t) => t.viewCount > 0);
 
     view().innerHTML = `
       ${hero ? `<section class="hero">
         ${posterWall(popular.items)}
         <div class="page hero-body">
-          <p class="eyebrow">Featured ${esc(UI.kind(hero).toLowerCase())} · ${esc(hero.genres[0])}</p>
+          <p class="eyebrow">Tonight at Kinoloft</p>
           <h1 class="hero-title">${esc(hero.name)}</h1>
           <p class="hero-synopsis">${esc(hero.synopsis)}</p>
-          <p class="facts">${UI.facts(hero)}${hero.ratingCount ? `<span class="dot">·</span>${UI.rating(hero)}` : ''}</p>
+          <p class="facts">${UI.facts(hero)}<span class="dot">·</span>${esc(hero.genres.join(', '))}</p>
           <div class="actions">
             <a class="btn primary large" href="#/watch/${esc(hero._id)}">${icon.play}Play</a>
             <a class="btn outline large" href="#/title/${esc(hero._id)}">More info</a>
           </div>
-          ${!Api.session ? '<p class="hero-hint">No account needed. <button class="link-btn" data-start-demo>Try the demo</button> to browse as a guest.</p>' : ''}
+          ${!Api.session ? '<p class="hero-hint">No account needed. <button class="link-btn" data-start-demo>Try the demo</button> to save films and resume where you stopped.</p>' : ''}
         </div>
       </section>` : ''}
 
@@ -96,48 +134,62 @@ const Views = (() => {
       </section>` : ''}
 
       ${first ? `<section class="page section reveal">
-        <header class="section-head"><p class="eyebrow">Trending now</p><h2>What everyone’s watching</h2></header>
-        <div class="tabs" role="tablist" aria-label="Trending titles">
-          ${picks.map((t, i) => `<button class="tab" role="tab" aria-selected="${i === 0}" data-spot="${esc(t._id)}">${esc(t.name)}</button>`).join('')}
+        ${sectionHead('Now showing', 'The rest of the program')}
+        <div class="tabs" role="tablist" aria-label="Films in the program">
+          ${program.map((t, i) => `<button class="tab" role="tab" id="tab-${esc(t._id)}" aria-controls="spot" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-spot="${esc(t._id)}">${esc(t.name)}</button>`).join('')}
         </div>
-        <div class="spot" id="spot" role="tabpanel">${spotlightBody(first)}</div>
+        <div class="spot" id="spot" role="tabpanel" aria-labelledby="tab-${esc(program[0]._id)}">${spotlightBody(first)}</div>
       </section>` : ''}
 
-      <section class="page section reveal">
-        ${UI.row('Most watched', popular.items, { href: '#/browse?sort=popular', eyebrow: 'Popular' })}
-      </section>
-      <section class="page section reveal">
-        ${UI.row('Highest rated', top.items.filter((t) => t.ratingCount), { href: '#/browse?sort=top', eyebrow: 'Top rated' })}
-      </section>
+      ${shorts(all.items.filter((t) => t.durationMinutes <= 10))}
+      ${archive(all.items)}
 
       ${rows.length ? `<section class="band reveal">
         <div class="page">
-          <header class="section-head"><p class="eyebrow">Genres</p><h2>Browse by genre</h2></header>
+          ${sectionHead('Collections', 'Browse by genre')}
           <div class="genre-grid">
             ${rows.map((r) => `<a class="genre-tile" href="#/browse?genre=${encodeURIComponent(r.genre)}">
               <span class="genre-stack" aria-hidden="true">${r.titles.slice(0, 3).map((t) => UI.poster(t)).join('')}</span>
               <span class="genre-name">${esc(r.genre)}</span>
-              <span class="genre-top">${esc(r.titles[0].name)}</span>
+              <span class="genre-top">${r.titles.length === 1 ? esc(r.titles[0].name) : `${esc(r.titles[0].name)} and more`}</span>
             </a>`).join('')}
           </div>
         </div>
       </section>` : ''}
 
-      <section class="page section reveal">
-        ${UI.row('New releases', fresh.items, { href: '#/browse?sort=newest', eyebrow: 'Just added' })}
-      </section>
-      ${!featured.length && !rows.length ? '<div class="page"><div class="state"><h2>No titles yet</h2><p>Run <code>npm run seed</code> to load the sample catalog.</p></div></div>' : ''}`;
+      ${watched.length >= 3 ? `<section class="page section reveal">
+        ${UI.row('Most watched at Kinoloft', watched, { href: '#/browse?sort=popular', eyebrow: 'Audience' })}
+      </section>` : ''}
+      ${!featured.length && !rows.length ? '<div class="page"><div class="state"><h2>The program is being prepared</h2><p>No films have been loaded yet. Run <code>npm run seed</code> to load the catalog.</p></div></div>' : ''}`;
 
     view().querySelector('[data-start-demo]')?.addEventListener('click', (e) => startDemo(e.currentTarget));
 
+    // Tabs follow the WAI-ARIA pattern: arrow keys move between them.
     const spot = document.getElementById('spot');
+    const tabs = [...view().querySelectorAll('[data-spot]')];
     const cache = new Map(first ? [[first._id, first]] : []);
-    view().querySelectorAll('[data-spot]').forEach((tab) => tab.addEventListener('click', async () => {
-      view().querySelectorAll('[data-spot]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+    async function select(tab) {
+      tabs.forEach((t) => { const on = t === tab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+      spot.setAttribute('aria-labelledby', tab.id);
       const id = tab.dataset.spot;
+      spot.classList.add('is-loading');
       if (!cache.has(id)) cache.set(id, (await Api.title(id)).title);
-      if (tab.getAttribute('aria-selected') === 'true') spot.innerHTML = spotlightBody(cache.get(id));
-    }));
+      if (tab.getAttribute('aria-selected') === 'true') {
+        spot.innerHTML = spotlightBody(cache.get(id));
+        spot.classList.remove('is-loading');
+      }
+    }
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => select(tab));
+      tab.addEventListener('keydown', (e) => {
+        const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+        if (!step) return;
+        e.preventDefault();
+        const next = tabs[(i + step + tabs.length) % tabs.length];
+        next.focus();
+        select(next);
+      });
+    });
   }
 
   async function browse(params) {
@@ -179,33 +231,87 @@ const Views = (() => {
   }
 
   async function search(params) {
-    const q = (params.get('q') || '').trim();
-    document.getElementById('search-input').value = q;
-    const page = Number(params.get('page')) || 1;
-    const data = q ? await Api.search(q, page) : null;
-    const link = (p) => `#/search?q=${encodeURIComponent(q)}&page=${p}`;
-    view().innerHTML = `<div class="page">
+    const { genres } = await Api.genres();
+    let q = (params.get('q') || '').trim();
+    view().innerHTML = `<div class="page search-view">
+      ${pageHead('Search', '', 'Find a film')}
       <form class="search-page" id="search-page" role="search">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-        <input type="search" name="q" value="${esc(q)}" placeholder="Search titles, people, genres" aria-label="Search" maxlength="100" autocomplete="off" />
+        <label class="sr-only" for="search-q">Search films, filmmakers, genres</label>
+        <input id="search-q" type="search" name="q" value="${esc(q)}" placeholder="Search films, filmmakers, genres" maxlength="100" autocomplete="off" enterkeyhint="search" data-autofocus aria-describedby="search-status" />
+        <kbd class="kbd" aria-hidden="true">Esc</kbd>
       </form>
-      ${!q ? '<div class="state"><h2>Find something to watch</h2><p>Search by title, cast member, or a word from the story.</p></div>' : `
-        <p class="result-count">${data.total} result${data.total === 1 ? '' : 's'} for “${esc(q)}”</p>
-        ${data.items.length ? `<div class="grid">${data.items.map((t) => UI.card(t)).join('')}</div>`
-          : '<div class="state"><h2>No matches</h2><p>Check the spelling, or try a cast name or a single word.</p></div>'}
-        ${data.pages > 1 ? `<nav class="pager" aria-label="Pages">
-          ${page > 1 ? `<a class="btn secondary" href="${link(page - 1)}">Previous</a>` : '<span></span>'}
-          <span class="muted">Page ${page} of ${data.pages}</span>
-          ${page < data.pages ? `<a class="btn secondary" href="${link(page + 1)}">Next</a>` : '<span></span>'}
-        </nav>` : ''}`}
+      <p class="sr-only" id="search-status" role="status" aria-live="polite"></p>
+      <div id="search-results"></div>
     </div>`;
+
     const form = document.getElementById('search-page');
+    const input = form.q;
+    const results = document.getElementById('search-results');
+    const status = document.getElementById('search-status');
+    const link = (term, page) => `#/search?q=${encodeURIComponent(term)}${page > 1 ? `&page=${page}` : ''}`;
+
+    const idle = () => `<div class="state compact">
+        <h2>What are you in the mood for?</h2>
+        <p>Search by title, director, studio, genre, or a word from the story.</p>
+        <div class="chips">${genres.map((g) => `<a class="chip" href="#/browse?genre=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}</div>
+      </div>`;
+
+    let seq = 0;
+    async function run(term, page = 1) {
+      const id = ++seq;
+      if (!term) { results.innerHTML = idle(); status.textContent = ''; return; }
+      results.innerHTML = `<div class="grid results-loading" aria-hidden="true">${'<div class="sk-card"><div class="sk-poster"></div><div class="sk-text"></div><div class="sk-text short"></div></div>'.repeat(4)}</div>`;
+      let data;
+      try {
+        data = await Api.search(term, page);
+      } catch (err) {
+        if (id === seq) results.innerHTML = `<div class="state compact"><h2>Search is unavailable right now</h2><p>${esc(err.message)}</p></div>`;
+        return;
+      }
+      if (id !== seq) return; // a newer search started while this one was in flight
+      status.textContent = `${data.total} result${data.total === 1 ? '' : 's'} for ${term}`;
+      if (!data.items.length) {
+        results.innerHTML = `<div class="state compact">
+          <h2>Nothing in the program matches “${esc(term)}”</h2>
+          <p>Try a single word, a director’s surname, or a genre such as animation.</p>
+          <a class="btn outline" href="#/browse">Browse all films</a>
+        </div>`;
+        return;
+      }
+      results.innerHTML = `
+        <p class="result-count">${data.partial ? `No exact word matches. Showing titles that contain “${esc(term)}”.` : `${data.total} result${data.total === 1 ? '' : 's'} for “${esc(term)}”`}</p>
+        <div class="grid results">${data.items.map((t) => UI.card(t)).join('')}</div>
+        ${data.pages > 1 ? `<nav class="pager" aria-label="Pages">
+          ${page > 1 ? `<a class="btn secondary" href="${link(term, page - 1)}">Previous</a>` : '<span></span>'}
+          <span class="muted">Page ${page} of ${data.pages}</span>
+          ${page < data.pages ? `<a class="btn secondary" href="${link(term, page + 1)}">Next</a>` : '<span></span>'}
+        </nav>` : ''}`;
+    }
+
+    // Results update as you type; the URL follows without re-rendering the page.
+    let timer;
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        q = input.value.trim();
+        history.replaceState(null, '', q ? link(q, 1) : '#/search');
+        run(q);
+      }, 250);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && input.value) { e.preventDefault(); input.value = ''; input.dispatchEvent(new Event('input')); }
+    });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const next = form.q.value.trim();
-      if (next) location.hash = `#/search?q=${encodeURIComponent(next)}`;
+      clearTimeout(timer);
+      q = input.value.trim();
+      history.replaceState(null, '', q ? link(q, 1) : '#/search');
+      run(q);
+      results.querySelector('a')?.focus();
     });
-    if (!q && window.matchMedia('(max-width: 760px)').matches) form.q.focus();
+    await run(q, Number(params.get('page')) || 1);
+    return () => clearTimeout(timer);
   }
 
   async function title(_params, id) {
@@ -213,6 +319,7 @@ const Views = (() => {
     let inList = viewer?.inWatchlist || false;
     let rating = viewer?.myReview?.rating || 0;
     const resume = viewer?.progress && !viewer.progress.completed && viewer.progress.positionSeconds > 5;
+    App.setTitle(t.name);
 
     view().innerHTML = `
       <section class="detail-head">
@@ -220,8 +327,8 @@ const Views = (() => {
         <div class="page detail-inner">
           <div class="detail-poster">${UI.poster(t)}</div>
           <div class="detail-info">
-            <p class="eyebrow">${esc(UI.kind(t))} · ${esc(t.genres.join(' · '))}</p>
-            <h1 class="detail-title">${esc(t.name)}</h1>
+            <p class="eyebrow">${esc(UI.kind(t))}</p>
+            <h1 class="detail-title film-title">${esc(t.name)}</h1>
             <p class="facts">${UI.facts(t)}${t.ratingCount ? `<span class="dot">·</span>${UI.rating(t)}<span class="muted-count">(${t.ratingCount})</span>` : ''}</p>
             <div class="actions">
               <a class="btn primary" href="#/watch/${esc(t._id)}">${icon.play}${resume ? 'Resume' : 'Play'}</a>
@@ -265,7 +372,10 @@ const Views = (() => {
       </section>`;
 
     const listBtn = document.getElementById('list-btn');
-    const paintList = () => { listBtn.innerHTML = inList ? `${icon.check}In My List` : `${icon.plus}My List`; };
+    const paintList = () => {
+      listBtn.innerHTML = inList ? `${icon.check}In My List` : `${icon.plus}My List`;
+      listBtn.setAttribute('aria-pressed', String(inList));
+    };
     paintList();
     listBtn.addEventListener('click', async () => {
       listBtn.disabled = true;
@@ -276,7 +386,9 @@ const Views = (() => {
         inList = !inList;
         if (wasSignedOut) return App.render(); // refresh viewer-specific sections for the new guest session
         paintList();
-        UI.toast(inList ? 'Added to My List' : 'Removed from My List');
+        listBtn.classList.remove('just-saved');
+        if (inList) { void listBtn.offsetWidth; listBtn.classList.add('just-saved'); }
+        UI.toast(inList ? `${t.name} is in your list` : `${t.name} was removed from your list`);
       } catch (e) { UI.toast(e.message, true); } finally { listBtn.disabled = false; }
     });
 
@@ -354,6 +466,7 @@ const Views = (() => {
   async function watch(_params, id) {
     if (!(await ensureSession())) return;
     const [{ title: t }, play] = await Promise.all([Api.title(id), Api.play(id)]);
+    App.setTitle(`Watching ${t.name}`);
     let screen;
     if (t.youtubeId) screen = '<div id="yt-player"></div>';
     else if (play.streamUrl) screen = `<video id="player" controls autoplay playsinline preload="metadata" src="${esc(play.streamUrl)}"></video>`;
@@ -416,7 +529,7 @@ const Views = (() => {
       ${pageHead('My List', items.length ? `${items.length} title${items.length === 1 ? '' : 's'} saved` : '', 'Your library')}
       ${Api.isGuest ? guestNote('keep a list that’s only yours') : ''}
       ${items.length ? `<div class="grid">${items.map((t) => UI.card(t)).join('')}</div>`
-        : '<div class="state"><h2>Your list is empty</h2><p>Use My List on any title to save it here.</p><a class="btn secondary" href="#/browse">Browse titles</a></div>'}
+        : '<div class="state"><h2>Nothing saved yet</h2><p>Press My List on any film and it waits here for you, along with your place in it.</p><a class="btn outline" href="#/browse">Browse the program</a></div>'}
     </div>`;
   }
 
@@ -461,7 +574,7 @@ const Views = (() => {
 
   async function admin(params) {
     if (!requireLogin()) return;
-    if (Api.session.user.role !== 'admin') { view().innerHTML = '<div class="page"><div class="state"><h2>Admins only</h2><p>This area is for catalog administrators.</p></div></div>'; return; }
+    if (Api.session.user.role !== 'admin') { view().innerHTML = '<div class="page"><div class="state"><h2>This area is for catalog admins</h2><p>Your account can browse, save, and review films, but not edit the catalog.</p><a class="btn outline" href="#/">Back to the program</a></div></div>'; return; }
     const editId = params.get('edit');
     if (editId || params.has('new')) return adminForm(editId);
 
@@ -549,6 +662,11 @@ const Views = (() => {
         <p>Kinoloft stores your name, email, list, playback progress, and reviews. The <a class="text-link" href="#/privacy">privacy policy</a> explains exactly what is kept and where.</p>
         <div class="form-actions"><button class="btn outline" id="sign-out">Sign out</button></div>
       </section>
+      ${user.role === 'admin' ? `<section class="account-panel">
+        <h2>Catalog admin</h2>
+        <p>Add, edit, and remove films. Every change is checked on the server, and edits fail safely if another admin saved first.</p>
+        <div class="form-actions"><a class="btn outline" href="#/admin">Open catalog admin</a></div>
+      </section>` : ''}
       <section class="account-panel danger-zone">
         <h2>Delete account</h2>
         <p>Permanently deletes your account, My List, playback progress, and reviews. This can't be undone.</p>

@@ -93,11 +93,19 @@ describe('auth', () => {
     await api().delete('/api/me').set({ Authorization: `Bearer ${body.token}` }).expect(403);
   });
 
-  it('protects admin routes', async () => {
+  it('protects every catalog-changing route on the server', async () => {
+    const { makeTitle } = require('./helpers');
+    const t = await makeTitle();
     const { auth } = await makeUser();
-    const noAuth = await api().post('/api/titles').send({});
-    assert.equal(noAuth.status, 401);
-    const notAdmin = await api().post('/api/titles').set(auth).send({});
-    assert.equal(notAdmin.status, 403);
+    const guest = { Authorization: `Bearer ${(await api().post('/api/auth/demo')).body.token}` };
+    for (const [method, url, body] of [['post', '/api/titles', {}], ['patch', `/api/titles/${t._id}`, { version: 0, name: 'X' }], ['delete', `/api/titles/${t._id}`]]) {
+      assert.equal((await api()[method](url).send(body)).status, 401, `${method} ${url} without a token`);
+      assert.equal((await api()[method](url).set(auth).send(body)).status, 403, `${method} ${url} as a viewer`);
+      assert.equal((await api()[method](url).set(guest).send(body)).status, 403, `${method} ${url} as the guest`);
+    }
+    // A forged role in a token signed with the wrong secret is rejected outright.
+    const jwt = require('jsonwebtoken');
+    const forged = jwt.sign({ sub: '0'.repeat(24), role: 'admin', scope: 'api' }, 'not-the-secret');
+    assert.equal((await api().delete(`/api/titles/${t._id}`).set({ Authorization: `Bearer ${forged}` })).status, 401);
   });
 });

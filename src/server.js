@@ -25,6 +25,7 @@ async function main() {
     process.exit(1);
   }
   console.log('Connected to MongoDB');
+  await db.syncIndexes();
   await runMigrations();
   const server = createApp().listen(config.port, () => {
     console.log(`OTT platform listening on http://localhost:${config.port}`);

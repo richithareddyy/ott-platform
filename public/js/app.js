@@ -10,22 +10,29 @@ const App = (() => {
     setTimeout(dismiss, 3000);
   }
 
+  // [pattern, view, nav item to highlight, page title]
   const routes = [
-    [/^\/$/, Views.home, 'home'],
-    [/^\/browse$/, Views.browse, 'browse'],
-    [/^\/search$/, Views.search, 'search'],
-    [/^\/title\/([a-f0-9]{24})$/, Views.title, null],
-    [/^\/watch\/([a-f0-9]{24})$/, Views.watch, null],
-    [/^\/my-list$/, Views.myList, 'my-list'],
-    [/^\/login$/, Views.login, null],
-    [/^\/register$/, Views.register, null],
-    [/^\/admin$/, Views.admin, 'admin'],
-    [/^\/account$/, Views.account, null],
-    [/^\/terms$/, Views.terms, null],
-    [/^\/privacy$/, Views.privacy, null],
-    [/^\/credits$/, Views.credits, null],
-    [/^\/copyright$/, Views.copyright, null],
+    [/^\/$/, Views.home, 'home', null],
+    [/^\/browse$/, Views.browse, 'browse', 'Browse'],
+    [/^\/search$/, Views.search, 'search', 'Search'],
+    [/^\/title\/([a-f0-9]{24})$/, Views.title, null, null],
+    [/^\/watch\/([a-f0-9]{24})$/, Views.watch, null, null],
+    [/^\/my-list$/, Views.myList, 'my-list', 'My List'],
+    [/^\/login$/, Views.login, null, 'Sign in'],
+    [/^\/register$/, Views.register, null, 'Create account'],
+    [/^\/admin$/, Views.admin, null, 'Catalog admin'],
+    [/^\/account$/, Views.account, null, 'Account'],
+    [/^\/terms$/, Views.terms, null, 'Terms of use'],
+    [/^\/privacy$/, Views.privacy, null, 'Privacy policy'],
+    [/^\/credits$/, Views.credits, null, 'Credits'],
+    [/^\/copyright$/, Views.copyright, null, 'Copyright'],
   ];
+
+  // Views with their own heading (titles, the player) call setTitle once data arrives.
+  function setTitle(label) {
+    document.title = label ? `${label} · Kinoloft` : 'Kinoloft · Open films, streamed';
+    document.getElementById('route-status').textContent = label || 'Home';
+  }
 
   let cleanup = null;
   let renderId = 0;
@@ -35,7 +42,8 @@ const App = (() => {
     const [path, query = ''] = (location.hash.slice(1) || '/').split('?');
     const params = new URLSearchParams(query);
     const match = routes.find(([re]) => re.test(path));
-    const [re, fn, navKey] = match || [null, Views.notFound, null];
+    const [re, fn, navKey, label] = match || [null, Views.notFound, null, 'Page not found'];
+    setTitle(label);
 
     if (typeof cleanup === 'function') cleanup();
     cleanup = null;
@@ -59,7 +67,7 @@ const App = (() => {
       updateRowNav();
       watchReveals();
     }
-    el.focus({ preventScroll: true });
+    if (id === renderId) (el.querySelector('[data-autofocus]') || el).focus({ preventScroll: true });
   }
 
   function paintAccount() {
@@ -123,19 +131,19 @@ const App = (() => {
     document.body.classList.toggle('scrolled', window.scrollY > 8);
   }, { passive: true });
 
-  document.getElementById('search-form').addEventListener('submit', (e) => {
+  // "/" opens search from anywhere, unless the visitor is already typing.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.closest('input, textarea, select, [contenteditable]')) return;
     e.preventDefault();
-    const q = document.getElementById('search-input').value.trim();
-    if (q) location.hash = `#/search?q=${encodeURIComponent(q)}`;
+    const input = document.querySelector('#search-page input');
+    if (input) input.focus(); else location.hash = '#/search';
   });
   window.addEventListener('hashchange', render);
   window.addEventListener('session-change', paintAccount);
 
-  document.getElementById('footer-author').textContent = SITE.author;
-  document.getElementById('footer-source').href = SITE.github;
-  document.getElementById('gh-link').href = SITE.github;
 
   paintAccount();
   render();
-  return { render };
+  return { render, setTitle };
 })();

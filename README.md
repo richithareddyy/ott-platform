@@ -46,7 +46,7 @@ Kinoloft is a portfolio project, not a commercial streaming service, and is not 
 
 - **Films:** open movies by the Blender Foundation and Blender Studio, embedded unchanged from Blender's official YouTube channels and used under their Creative Commons licenses (CC BY 2.5, 3.0, and 4.0; Cosmos Laundromat is CC BY-SA 3.0). Each film's creator, license, and source are listed in `scripts/catalog.json`, on its title page, and on the in-app Credits page. Artwork is a frame from each film served by YouTube; synopses are written for this project.
 - **YouTube:** playback and thumbnails use YouTube API Services, subject to the [YouTube Terms of Service](https://www.youtube.com/t/terms) and the [Google Privacy Policy](https://policies.google.com/privacy).
-- **Font:** [Inter](https://rsms.me/inter/) by Rasmus Andersson, SIL Open Font License 1.1, loaded from Google Fonts.
+- **Fonts:** [Inter](https://rsms.me/inter/) by Rasmus Andersson, Fraunces by Undercase Type, and IBM Plex Mono by IBM, all SIL Open Font License 1.1, loaded from Google Fonts.
 - **Packages:** Express, Mongoose, jsonwebtoken, bcrypt.js, and Supertest are MIT-licensed; their notices ship with each package.
 
 The app includes Terms, Privacy, Credits, and Copyright pages (footer links), and signed-in users can delete their account and data from the Account page.

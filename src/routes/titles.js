@@ -113,7 +113,7 @@ router.get(
       limit: { type: 'number', integer: true, min: 1, max: 50, default: 24 },
     });
     const filter = { $text: { $search: q.q } };
-    const [items, total] = await Promise.all([
+    let [items, total] = await Promise.all([
       Title.find(filter, { score: { $meta: 'textScore' } })
         .sort({ score: { $meta: 'textScore' }, viewCount: -1 })
         .skip((q.page - 1) * q.limit)
@@ -122,7 +122,19 @@ router.get(
         .lean(),
       Title.countDocuments(filter),
     ]);
-    res.json({ items, total, page: q.page, pages: Math.ceil(total / q.limit) });
+    // The text index matches whole words, so "sint" finds nothing. Fall back to a
+    // case-insensitive partial match on the title before reporting no results.
+    let partial = false;
+    if (!total) {
+      const escaped = q.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const byName = { name: { $regex: escaped, $options: 'i' } };
+      [items, total] = await Promise.all([
+        Title.find(byName).sort({ viewCount: -1, _id: -1 }).skip((q.page - 1) * q.limit).limit(q.limit).select(Title.CARD_FIELDS).lean(),
+        Title.countDocuments(byName),
+      ]);
+      partial = total > 0;
+    }
+    res.json({ items, total, page: q.page, pages: Math.ceil(total / q.limit), partial });
   })
 );
 

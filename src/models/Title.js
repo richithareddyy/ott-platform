@@ -54,15 +54,15 @@ titleSchema.index({ releaseYear: -1, _id: -1 });
 titleSchema.index({ ratingAvg: -1, _id: -1 });
 // Partial index: only the handful of featured titles are indexed.
 titleSchema.index({ featured: 1, viewCount: -1 }, { partialFilterExpression: { featured: true } });
-// Full-text search with weights favouring the title name.
+// Full-text search across titles, filmmakers, genres, and plots, weighted toward the title.
 titleSchema.index(
-  { name: 'text', cast: 'text', synopsis: 'text' },
-  { weights: { name: 10, cast: 4, synopsis: 1 }, name: 'title_text' }
+  { name: 'text', director: 'text', credit: 'text', cast: 'text', genres: 'text', synopsis: 'text' },
+  { weights: { name: 10, director: 5, credit: 3, cast: 4, genres: 3, synopsis: 1 }, name: 'title_search' }
 );
 
 // Fields returned for cards/rows; keeps list payloads small.
 titleSchema.statics.CARD_FIELDS =
-  'name type genres releaseYear maturityRating durationMinutes posterHue youtubeId still stillZoom ratingAvg ratingCount viewCount';
+  'name type genres releaseYear maturityRating durationMinutes posterHue youtubeId still stillZoom credit ratingAvg ratingCount viewCount';
 
 module.exports = model('Title', titleSchema);
 module.exports.GENRES = GENRES;

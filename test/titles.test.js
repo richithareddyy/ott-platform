@@ -45,6 +45,21 @@ describe('catalog', () => {
     assert.equal(byCast.body.items[0].name, 'The Lighthouse Keeper');
   });
 
+  it('searches by filmmaker and genre, and falls back to partial titles', async () => {
+    await makeTitle({ name: 'Glass Harbor', director: 'Ada Kestrel', credit: 'North Pier Studio', genres: ['Horror'] });
+    await makeTitle({ name: 'Other Film' });
+    assert.equal((await api().get('/api/titles/search').query({ q: 'kestrel' })).body.total, 1);
+    assert.equal((await api().get('/api/titles/search').query({ q: 'pier' })).body.total, 1);
+    assert.equal((await api().get('/api/titles/search').query({ q: 'horror' })).body.total, 1);
+
+    const partial = await api().get('/api/titles/search').query({ q: 'harb' });
+    assert.equal(partial.body.total, 1);
+    assert.equal(partial.body.partial, true);
+    const none = await api().get('/api/titles/search').query({ q: 'zzqq(' });
+    assert.equal(none.status, 200);
+    assert.equal(none.body.total, 0);
+  });
+
   it('builds home rows grouped by genre', async () => {
     await makeTitle({ genres: ['Drama', 'Comedy'], featured: true });
     const res = await api().get('/api/titles/rows');

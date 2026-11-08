@@ -3,13 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Kinoloft</title>
-  <meta name="description" content="Browse, search, and stream films and series." />
+  <title>Kinoloft · Open films, streamed</title>
+  <meta name="description" content="Kinoloft is a small streaming cinematheque of Creative Commons open films from the Blender Foundation and Blender Studio. Browse, save, and pick up where you left off." />
+  <link rel="canonical" href="https://ott-platform-azon.onrender.com/" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta name="theme-color" content="#ffffff" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Kinoloft" />
+  <meta property="og:title" content="Kinoloft · Open films, streamed" />
+  <meta property="og:description" content="Kinoloft is a small streaming cinematheque of Creative Commons open films from the Blender Foundation and Blender Studio. Browse, save, and pick up where you left off." />
+  <meta property="og:url" content="https://ott-platform-azon.onrender.com/" />
+  <meta property="og:image" content="https://ott-platform-azon.onrender.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Kinoloft clapperboard logo with the line: open films, streamed." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Kinoloft · Open films, streamed" />
+  <meta name="twitter:description" content="Kinoloft is a small streaming cinematheque of Creative Commons open films from the Blender Foundation and Blender Studio. Browse, save, and pick up where you left off." />
+  <meta name="twitter:image" content="https://ott-platform-azon.onrender.com/og-image.png" />
+
+  <script>
+    // The app routes with hashes (#/browse). Map a direct path like /browse to its hash route.
+    if (location.pathname !== '/' && !location.hash) {
+      history.replaceState(null, '', '/#' + location.pathname + location.search);
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -50,21 +73,18 @@
       <nav class="nav" aria-label="Primary">
         <a href="#/" data-nav="home">Home</a>
         <a href="#/browse" data-nav="browse">Browse</a>
+        <a href="#/search" data-nav="search">Search <kbd class="kbd" aria-hidden="true">/</kbd></a>
         <a href="#/my-list" data-nav="my-list">My List</a>
-        <a href="#/admin" data-nav="admin" class="admin-only">Admin</a>
       </nav>
-      <form class="search" id="search-form" role="search">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-        <input type="search" id="search-input" placeholder="Titles, people, genres" aria-label="Search" maxlength="100" autocomplete="off" />
-      </form>
       <div class="account" id="account"></div>
-      <a class="gh-link" id="gh-link" target="_blank" rel="noopener" aria-label="Source on GitHub">
+      <a class="gh-link" href="https://github.com/richithareddyy/ott-platform" target="_blank" rel="noopener" aria-label="Source on GitHub">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
     </div>
   </header>
 
   <main id="view" tabindex="-1"></main>
+  <p class="sr-only" id="route-status" role="status" aria-live="polite"></p>
 
   <footer class="footer">
     <div class="footer-inner">
@@ -75,9 +95,9 @@
         <a href="#/terms">Terms</a>
         <a href="#/privacy">Privacy</a>
         <a href="#/copyright">Copyright</a>
-        <a id="footer-source" target="_blank" rel="noopener">Source on GitHub</a>
+        <a href="https://github.com/richithareddyy/ott-platform" target="_blank" rel="noopener">Source on GitHub</a>
       </nav>
-      <p class="footer-note">A portfolio project by <span id="footer-author"></span>, not a commercial streaming service. Films are open movies by the Blender Foundation and Blender Studio, used under Creative Commons licenses and played through YouTube. Kinoloft is not affiliated with Blender, YouTube, or Google.</p>
+      <p class="footer-note">A portfolio project by Richitha Rekula, not a commercial streaming service. Films are open movies by the Blender Foundation and Blender Studio, used under Creative Commons licenses and played through YouTube. Kinoloft is not affiliated with Blender, YouTube, or Google.</p>
     </div>
   </footer>
 

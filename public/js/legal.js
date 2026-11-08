@@ -74,7 +74,7 @@ const Legal = (() => {
     <h2>Other services your browser contacts</h2>
     <ul>
       <li><strong>YouTube (Google).</strong> Title artwork is loaded from YouTube's image servers (<code>i.ytimg.com</code>) as you browse. When you press Play on a film, Kinoloft loads YouTube's player script from <code>youtube.com</code> and the player from <code>youtube-nocookie.com</code>, its privacy-enhanced mode. YouTube receives your IP address and browser details, and once the video plays it may set cookies or local storage and collect data under the ${ext('https://policies.google.com/privacy', 'Google Privacy Policy')}. Kinoloft uses YouTube API Services; using the player means you also agree to the ${ext('https://www.youtube.com/t/terms', 'YouTube Terms of Service')}. Kinoloft only reads the playback position from the player to save your progress.</li>
-      <li><strong>Google Fonts.</strong> The Inter typeface is loaded from <code>fonts.googleapis.com</code> and <code>fonts.gstatic.com</code>, which receive your IP address and browser details. See ${ext('https://developers.google.com/fonts/faq/privacy', 'Google Fonts privacy')}.</li>
+      <li><strong>Google Fonts.</strong> The Inter, Fraunces, and IBM Plex Mono typefaces are loaded from <code>fonts.googleapis.com</code> and <code>fonts.gstatic.com</code>, which receive your IP address and browser details. See ${ext('https://developers.google.com/fonts/faq/privacy', 'Google Fonts privacy')}.</li>
       <li><strong>GitHub.</strong> Contacted only if you follow a link to the source code.</li>
     </ul>
 
@@ -121,7 +121,7 @@ const Legal = (() => {
 
       <h2>Type and icons</h2>
       <ul>
-        <li><strong>Inter</strong> by Rasmus Andersson, ${ext('https://openfontlicense.org', 'SIL Open Font License 1.1')}, served by Google Fonts.</li>
+        <li><strong>Inter</strong> by Rasmus Andersson, <strong>Fraunces</strong> by Undercase Type, and <strong>IBM Plex Mono</strong> by IBM, all under the ${ext('https://openfontlicense.org', 'SIL Open Font License 1.1')} and served by Google Fonts.</li>
         <li>Interface icons, the Kinoloft logo, and the generated artwork used for titles without video were made for this project.</li>
         <li>The GitHub mark belongs to GitHub, Inc. and is used only to link to this project's repository.</li>
       </ul>
