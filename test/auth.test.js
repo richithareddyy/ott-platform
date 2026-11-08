@@ -66,7 +66,7 @@ describe('auth', () => {
     assert.ok(list.body.items.some((i) => String(i._id) === String(t._id)));
     const review = await api().put(`/api/titles/${t._id}/reviews/mine`).set(auth).send({ rating: 5 });
     assert.equal(review.status, 403);
-    const login = await api().post('/api/auth/login').send({ email: 'demo@streambox.test', password: 'anything-at-all' });
+    const login = await api().post('/api/auth/login').send({ email: 'demo@kinoloft.test', password: 'anything-at-all' });
     assert.equal(login.status, 401);
   });
 

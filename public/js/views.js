@@ -433,7 +433,7 @@ const Views = (() => {
         <button class="btn primary block">${isLogin ? 'Sign in' : 'Create account'}</button>
       </form>
       <p class="muted switch">${isLogin
-        ? `New to StreamBox? <a class="text-link" href="#/register?next=${encodeURIComponent(next)}">Create an account</a>`
+        ? `New to Kinoloft? <a class="text-link" href="#/register?next=${encodeURIComponent(next)}">Create an account</a>`
         : `Already have an account? <a class="text-link" href="#/login?next=${encodeURIComponent(next)}">Sign in</a>`}</p>
       ${Api.isGuest ? '' : `<div class="divider"><span>or</span></div>
       <button class="btn secondary block" id="guest-btn">Continue as guest</button>`}
@@ -546,7 +546,7 @@ const Views = (() => {
       ${pageHead(esc(user.name), esc(user.email), 'Account')}
       <section class="account-panel">
         <h2>Your data</h2>
-        <p>StreamBox stores your name, email, list, playback progress, and reviews. The <a class="text-link" href="#/privacy">privacy policy</a> explains exactly what is kept and where.</p>
+        <p>Kinoloft stores your name, email, list, playback progress, and reviews. The <a class="text-link" href="#/privacy">privacy policy</a> explains exactly what is kept and where.</p>
         <div class="form-actions"><button class="btn outline" id="sign-out">Sign out</button></div>
       </section>
       <section class="account-panel danger-zone">

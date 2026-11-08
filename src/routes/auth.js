@@ -49,7 +49,7 @@ router.post(
   })
 );
 
-const DEMO_EMAIL = 'demo@streambox.test';
+const DEMO_EMAIL = 'demo@kinoloft.test';
 
 // Shared guest account for the "Try demo" button. It's created on first use with
 // a random password nobody knows, so this endpoint is the only way in.

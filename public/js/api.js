@@ -1,6 +1,6 @@
 // Small wrapper around fetch for the REST API. The session lives in localStorage.
 const Api = (() => {
-  const KEY = 'streambox.session';
+  const KEY = 'kinoloft.session';
 
   function readSession() {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }

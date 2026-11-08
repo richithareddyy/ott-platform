@@ -1,6 +1,6 @@
-# StreamBox
+# Kinoloft
 
-You pause a video, open another tab, and come back later expecting your place to be saved. StreamBox is a video-streaming demo with catalog search, watchlists, playback progress, reviews, and an admin page. Much of the work is in keeping that state consistent when requests arrive twice, out of order, or at the same time.
+You pause a video, open another tab, and come back later expecting your place to be saved. Kinoloft is a video-streaming demo with catalog search, watchlists, playback progress, reviews, and an admin page. Much of the work is in keeping that state consistent when requests arrive twice, out of order, or at the same time.
 
 The backend is Node.js, Express, and MongoDB. The frontend is vanilla JavaScript with a hash router. The catalog is nine Creative Commons open movies by the Blender Foundation and Blender Studio, played through YouTube's embedded player; see [Credits and licenses](#credits-and-licenses).
 
@@ -42,7 +42,7 @@ The integration suite uses a separate `_test` database; concurrency checks use `
 
 ## Credits and licenses
 
-StreamBox is a portfolio project, not a commercial streaming service, and is not affiliated with the Blender Foundation, Blender Studio, YouTube, or Google.
+Kinoloft is a portfolio project, not a commercial streaming service, and is not affiliated with the Blender Foundation, Blender Studio, YouTube, or Google.
 
 - **Films:** open movies by the Blender Foundation and Blender Studio, embedded unchanged from Blender's official YouTube channels and used under their Creative Commons licenses (CC BY 2.5, 3.0, and 4.0; Cosmos Laundromat is CC BY-SA 3.0). Each film's creator, license, and source are listed in `scripts/catalog.json`, on its title page, and on the in-app Credits page. Artwork is a frame from each film served by YouTube; synopses are written for this project.
 - **YouTube:** playback and thumbnails use YouTube API Services, subject to the [YouTube Terms of Service](https://www.youtube.com/t/terms) and the [Google Privacy Policy](https://policies.google.com/privacy).

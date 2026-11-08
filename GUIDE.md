@@ -1,4 +1,4 @@
-# StreamBox · OTT Platform
+# Kinoloft · OTT Platform
 
 A web-based video streaming project with catalog browsing, search, watchlists, playback progress, ratings, and an admin interface. Built with **Node.js, Express, MongoDB, and vanilla JavaScript**.
 
