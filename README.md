@@ -40,6 +40,22 @@ npm run loadtest
 
 The integration suite uses a separate `_test` database; concurrency checks use `_load`.
 
+**27 integration tests** cover authentication, server-side admin authorization (anonymous, viewer, guest, and forged-token requests on every catalog-changing route), duplicate writes under concurrency, exact rating totals, stale playback updates, conflicting admin edits, byte-range streaming, account deletion, search, and the catalog migration.
+
+**Load test, run 7 November 2026.** One Node.js 24 process and MongoDB 7.0 in Docker on an Apple M5 laptop (10 cores); 200 users, 100 concurrent clients, 20 seconds, writes concentrated on 10 titles:
+
+| Operation | Requests | p50 ms | p95 ms | p99 ms |
+|---|---:|---:|---:|---:|
+| Browse catalog | 10,341 | 27.0 | 37.8 | 55.2 |
+| Home rows | 5,291 | 25.4 | 37.7 | 61.4 |
+| Title detail | 7,936 | 27.1 | 38.4 | 58.1 |
+| Search | 4,283 | 27.1 | 39.1 | 61.4 |
+| Playback heartbeat (write) | 15,507 | 44.9 | 67.2 | 97.8 |
+| Add to list (write) | 4,723 | 44.5 | 61.4 | 95.1 |
+| Review (write) | 4,192 | 54.1 | 75.0 | 114.0 |
+
+52,273 requests in 20.0 s (about 2,600 requests per second) with 0 errors. The audit afterwards found 0 duplicate list entries, progress records, or reviews, and 0 titles with wrong rating sums or view counts. Writes cost an extra lookup because they confirm the account still exists (so a token from a deleted account can't write); that check is the main reason write latency is higher than reads. These are local numbers; the free hosted instance is slower and sleeps when idle.
+
 ## Credits and licenses
 
 Kinoloft is a portfolio project, not a commercial streaming service, and is not affiliated with the Blender Foundation, Blender Studio, YouTube, or Google.
