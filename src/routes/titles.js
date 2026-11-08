@@ -213,13 +213,16 @@ router.put(
       { upsert: true, new: false, runValidators: true, setDefaultsOnInsert: true }
     ).lean();
 
+    // Concurrent first-time upserts can collide on the unique index; the
+    // losers retry and find the document as an update.
     let previous;
-    try {
-      previous = await upsert();
-    } catch (err) {
-      // Two first-time upserts raced on the unique index; retry as an update.
-      if (!isDuplicateKey(err)) throw err;
-      previous = await upsert();
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        previous = await upsert();
+        break;
+      } catch (err) {
+        if (!isDuplicateKey(err) || attempt === 3) throw err;
+      }
     }
 
     if (previous) await applyRatingDelta(id, 0, body.rating - previous.rating);

@@ -1,6 +1,7 @@
 const config = require('./config');
 const db = require('./db');
 const { createApp } = require('./app');
+const { runMigrations } = require('./migrations');
 
 // Common Atlas setup mistakes, so a failed deploy log says what to fix.
 function dbHint(err) {
@@ -24,6 +25,7 @@ async function main() {
     process.exit(1);
   }
   console.log('Connected to MongoDB');
+  await runMigrations();
   const server = createApp().listen(config.port, () => {
     console.log(`OTT platform listening on http://localhost:${config.port}`);
   });
