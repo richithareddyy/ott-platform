@@ -1,5 +1,15 @@
 // Hash router plus the bits of the shell that live outside #view.
 const App = (() => {
+  // Opening slate: removed once its fade finishes, or right away on click or key press.
+  const intro = document.getElementById('intro');
+  if (intro) {
+    const dismiss = () => intro.remove();
+    intro.addEventListener('animationend', (e) => { if (e.animationName === 'intro-out') dismiss(); });
+    intro.addEventListener('click', dismiss);
+    addEventListener('keydown', dismiss, { once: true });
+    setTimeout(dismiss, 3000);
+  }
+
   const routes = [
     [/^\/$/, Views.home, 'home'],
     [/^\/browse$/, Views.browse, 'browse'],

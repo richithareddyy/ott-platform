@@ -529,3 +529,34 @@ tbody tr:hover td { background: var(--bg-2); }
 .btn.danger-fill:hover { background: #b42318; }
 @media (max-width: 760px) { .legal { padding-top: 28px; } .legal-table td, .legal-table th { padding: 10px; } }
 .credits dd a { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+
+/* Opening clapperboard: plays on every load, then fades out (CSS alone hides it, JS removes it) */
+.intro {
+  position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+  background: var(--bg); cursor: pointer;
+  animation: intro-out .45s ease 1.25s forwards;
+}
+.intro-slate { width: min(280px, 64vw); overflow: visible; filter: drop-shadow(0 24px 40px rgba(16, 16, 24, .28)); animation: slate-in .4s cubic-bezier(.2, .8, .2, 1) both, slate-hit .28s ease-out .78s; }
+.intro-clapper { transform-box: view-box; transform-origin: 14px 40px; animation: clap .7s cubic-bezier(.55, 0, .35, 1) .15s both; }
+.intro-name { fill: #fff; font: 800 30px var(--font); letter-spacing: .06em; }
+.intro-meta { fill: #8f8f9a; font: 600 8.5px var(--font); letter-spacing: .12em; }
+
+@keyframes slate-in { from { opacity: 0; transform: translateY(18px) scale(.94); } }
+@keyframes clap {
+  0% { transform: rotate(-24deg); }
+  55% { transform: rotate(-32deg); }
+  86% { transform: rotate(1.5deg); }
+  100% { transform: rotate(0); }
+}
+@keyframes slate-hit {
+  0% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-3px, 2px) scale(1.025); }
+  55% { transform: translate(2px, -1px) scale(1.01); }
+  100% { transform: none; }
+}
+@keyframes intro-out { to { opacity: 0; visibility: hidden; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro { animation: intro-out .3s ease .5s forwards; }
+  .intro-slate, .intro-clapper { animation: none; }
+}
