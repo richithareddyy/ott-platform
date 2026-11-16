@@ -1,8 +1,9 @@
 const Title = require('../models/Title');
 
 // Pipeline update so ratingAvg is recomputed from the new sum/count in the same
-// atomic write; concurrent reviews can't leave the average stale.
-function applyRatingDelta(titleId, countDelta, sumDelta) {
+// write. Callers run it in the same transaction as the review change it
+// reflects, so the review and the aggregate commit or roll back together.
+function applyRatingDelta(titleId, countDelta, sumDelta, session) {
   return Title.updateOne({ _id: titleId }, [
     {
       $set: {
@@ -21,7 +22,7 @@ function applyRatingDelta(titleId, countDelta, sumDelta) {
         },
       },
     },
-  ]);
+  ], { session });
 }
 
 module.exports = { applyRatingDelta };

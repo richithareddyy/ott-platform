@@ -14,7 +14,8 @@
     "seed": "node --env-file-if-exists=.env scripts/seed.js",
     "seed:bulk": "node --env-file-if-exists=.env scripts/seed.js --bulk 50000",
     "loadtest": "node --env-file-if-exists=.env scripts/load-test.js",
-    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"test/**/*.test.js\""
+    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "ratings:check": "node --env-file-if-exists=.env scripts/reconcile-ratings.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -12,7 +12,21 @@ async function connect(uri = config.mongoUri) {
     // index definition replaces the old one instead of conflicting with it.
     autoIndex: false,
   });
+  // Rating writes rely on multi-document transactions, which need a replica set
+  // (every Atlas cluster is one; docker compose runs a single-node set).
+  const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+  if (!hello.setName) {
+    await mongoose.disconnect();
+    throw new Error('MongoDB is running standalone. Kinoloft needs a replica set for transactions; use `docker compose up -d` or a MongoDB Atlas cluster.');
+  }
   return mongoose.connection;
+}
+
+// Runs fn(session) in a transaction. The driver retries the whole callback on
+// transient errors such as write conflicts between concurrent transactions,
+// so fn must do all of its reads and writes through the session.
+function withTransaction(fn) {
+  return mongoose.connection.transaction(fn);
 }
 
 async function syncIndexes() {
@@ -23,4 +37,4 @@ async function disconnect() {
   await mongoose.disconnect();
 }
 
-module.exports = { connect, disconnect, syncIndexes, mongoose };
+module.exports = { connect, disconnect, syncIndexes, withTransaction, mongoose };

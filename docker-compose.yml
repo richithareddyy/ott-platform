@@ -1,15 +1,20 @@
 services:
+  # Single-node replica set: rating writes use multi-document transactions,
+  # which MongoDB only supports on replica sets (Atlas clusters already are).
+  # The healthcheck initiates the set on first start.
   mongo:
     image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"]
       interval: 5s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 20
+      start_period: 5s
 
   # Optional: run the app in a container too (`docker compose --profile app up`).
   app:
@@ -18,7 +23,8 @@ services:
     ports:
       - "4000:4000"
     environment:
-      MONGO_URI: mongodb://mongo:27017/ott_platform
+      # directConnection: the replica set advertises localhost:27017, which only resolves from the host.
+      MONGO_URI: mongodb://mongo:27017/ott_platform?directConnection=true
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}

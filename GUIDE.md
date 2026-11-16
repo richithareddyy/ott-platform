@@ -68,7 +68,7 @@ docker compose --profile app up --build
 
 The app deploys as a single Docker web service with a hosted MongoDB database.
 
-1. **Database:** create a free MongoDB Atlas cluster.
+1. **Database:** create a free MongoDB Atlas cluster. Atlas clusters are replica sets, which the app requires for transactions; a standalone MongoDB server is refused at startup.
    - Add a database user.
    - Allow network access from anywhere (`0.0.0.0/0`).
    - Copy the connection string, and add `/ott_platform` before the `?` so it names the database.
@@ -186,7 +186,7 @@ Results depend on hardware. Options: `--users`, `--titles`, `--concurrency`, and
 
 `npm test` uses Node's test runner and Supertest against MongoDB. Tests cover authentication, catalog operations, byte-range responses, duplicate writes, rating aggregates, stale playback updates, and conflicting admin edits. The default database is `ott_platform_test`; `MONGO_URI_TEST` overrides it. The test helper drops that database during setup and teardown.
 
-Review records and title rating aggregates are separate writes, as are progress creation and view-count updates. Individual updates are atomic, but a process failure between them can leave aggregates inconsistent. The load test checks concurrency within a running process; it does not test crash recovery. The service serves local media files and does not implement transcoding, adaptive streaming, subscriptions, or DRM.
+Review changes and title rating aggregates commit in one transaction, and so does account deletion. Progress creation and view-count updates are still separate writes: each is atomic, but a process failure between them can leave a view count one short. `npm run ratings:check` reports rating drift without changing data. The load test checks concurrency within a running process; it does not test crash recovery. The service serves local media files and does not implement transcoding, adaptive streaming, subscriptions, or DRM.
 
 ## Security notes
 

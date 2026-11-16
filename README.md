@@ -6,7 +6,7 @@ The backend is Node.js, Express, and MongoDB. The frontend is vanilla JavaScript
 
 ## Run locally
 
-Requires Node.js 22.9+ and Docker for MongoDB. From the repository root:
+Requires Node.js 22.9+ and Docker for MongoDB. MongoDB must run as a **replica set**, because review and account changes use multi-document transactions; `docker compose` starts a single-node set, and every MongoDB Atlas cluster (including the free tier) already is one. The server refuses to start against a standalone MongoDB. From the repository root:
 
 ```bash
 cp .env.example .env
@@ -24,7 +24,8 @@ Before starting, set `JWT_SECRET` and the seed account passwords in `.env`. Open
 
 - **Repeated clicks:** a unique `{user, title}` database index prevents duplicate watchlist, progress, and review records. Repeating a request updates the existing record.
 - **Playback updates:** the player sends its position with a timestamp. Older updates are ignored, so a delayed request cannot rewind saved progress.
-- **Ratings:** totals and the average change together in one database update.
+- **Ratings:** a review and its title's count, sum, and average change in one transaction. Creating, editing, or deleting a review, and deleting an account with reviews, either commit together or roll back together, so a failure between the writes leaves nothing half-applied and an identical retry starts clean. Concurrent reviews on the same title conflict and are retried rather than overwritten.
+- **Sign-in revocation:** a token only proves who signed in. Every authenticated request reloads the account, so a deleted account is rejected at once and the role stored in the database, not the role in the token, decides access: a demoted admin loses admin rights on their next request.
 - **Admin edits:** saving checks the version originally opened. If another admin has changed it, the server returns `409 Conflict` instead of overwriting their work.
 - **Streaming:** the player requests portions of a video using HTTP range requests and short-lived tokens for that title.
 - **Catalog pages:** a cursor remembers where the previous page ended, avoiding a scan through all earlier results.
@@ -38,23 +39,25 @@ npm test
 npm run loadtest
 ```
 
-The integration suite uses a separate `_test` database; concurrency checks use `_load`.
+The integration suite uses a separate `_test` database and the load test uses `_load`; both are dropped by the scripts, so point them only at disposable databases. CI (`.github/workflows/ci.yml`) runs the tests on Node 22.9.0 and 24 against a single-node replica set, then a short concurrency smoke test that fails on any error or integrity violation.
 
-**27 integration tests** cover authentication, server-side admin authorization (anonymous, viewer, guest, and forged-token requests on every catalog-changing route), duplicate writes under concurrency, exact rating totals, stale playback updates, conflicting admin edits, byte-range streaming, account deletion, search, and the catalog migration.
+**44 integration tests** cover authentication, authorization on every catalog-changing route (legitimate, ordinary, expired, forged, deleted, demoted, and promoted principals), rating consistency when a write fails between the review and its aggregate (create, edit, delete, account deletion, and identical retries), concurrent review changes, duplicate writes, stale playback updates, conflicting admin edits, byte-range streaming, search, and the catalog migration.
 
-**Load test, run 7 November 2026.** One Node.js 24 process and MongoDB 7.0 in Docker on an Apple M5 laptop (10 cores); 200 users, 100 concurrent clients, 20 seconds, writes concentrated on 10 titles:
+**Checking existing data.** `npm run ratings:check` recomputes every title's aggregate from its reviews and lists any mismatch and any orphaned review. It changes nothing and exits non-zero if it finds a problem. `npm run ratings:check -- --apply` repairs mismatched aggregates, each inside a transaction; orphaned reviews are only reported. Run it against production deliberately, with `MONGO_URI` set.
+
+**Load test, run 15 November 2026.** One Node.js 24 process and MongoDB 7.0 (single-node replica set) in Docker on an Apple M5 laptop (10 cores); 200 users, 100 concurrent clients, 20 seconds, writes concentrated on 10 titles:
 
 | Operation | Requests | p50 ms | p95 ms | p99 ms |
 |---|---:|---:|---:|---:|
-| Browse catalog | 10,341 | 27.0 | 37.8 | 55.2 |
-| Home rows | 5,291 | 25.4 | 37.7 | 61.4 |
-| Title detail | 7,936 | 27.1 | 38.4 | 58.1 |
-| Search | 4,283 | 27.1 | 39.1 | 61.4 |
-| Playback heartbeat (write) | 15,507 | 44.9 | 67.2 | 97.8 |
-| Add to list (write) | 4,723 | 44.5 | 61.4 | 95.1 |
-| Review (write) | 4,192 | 54.1 | 75.0 | 114.0 |
+| Browse catalog | 8,891 | 26.9 | 40.7 | 55.4 |
+| Home rows | 4,379 | 25.3 | 40.2 | 58.7 |
+| Title detail | 6,530 | 37.4 | 58.3 | 81.3 |
+| Search | 3,539 | 27.2 | 42.0 | 59.9 |
+| Playback heartbeat (write) | 13,007 | 48.1 | 78.2 | 109.4 |
+| Add to list (write) | 3,946 | 46.8 | 72.0 | 102.6 |
+| Review (write, transactional) | 3,529 | 84.2 | 235.9 | 399.0 |
 
-52,273 requests in 20.0 s (about 2,600 requests per second) with 0 errors. The audit afterwards found 0 duplicate list entries, progress records, or reviews, and 0 titles with wrong rating sums or view counts. Writes cost an extra lookup because they confirm the account still exists (so a token from a deleted account can't write); that check is the main reason write latency is higher than reads. These are local numbers; the free hosted instance is slower and sleeps when idle.
+43,821 requests in 20.0 s (about 2,200 requests per second) with 0 errors. The audit afterwards found 0 duplicate list entries, progress records, or reviews, and 0 titles with wrong rating sums or view counts. Correctness costs latency: review writes on the same few titles conflict inside transactions and are retried, which is why their tail is longest, and signed-in requests now include an account lookup. These are local numbers; the free hosted instance is slower and sleeps when idle.
 
 ## Credits and licenses
 

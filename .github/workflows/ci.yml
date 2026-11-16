@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.9.0', '24']
+    env:
+      MONGO_URI_TEST: mongodb://127.0.0.1:27017/ott_platform_test
+      MONGO_URI_LOAD: mongodb://127.0.0.1:27017/ott_platform_load
+      JWT_SECRET: ci-only-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Transactions need a replica set, so CI runs the same single-node set as docker compose.
+      - name: Start MongoDB 7 as a single-node replica set
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' && break; sleep 2; done
+          docker exec mongo mongosh --quiet --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true && break; sleep 2; done
+
+      - run: npm ci
+      - run: npm test
+
+      # Fails on any request error or integrity violation (duplicates, wrong aggregates).
+      - name: Concurrency smoke test
+        run: npm run loadtest -- --users 50 --concurrency 30 --duration 5

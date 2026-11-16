@@ -6,11 +6,12 @@ const WatchlistItem = require('../models/WatchlistItem');
 const WatchProgress = require('../models/WatchProgress');
 const { asyncHandler, assertObjectId, HttpError, isDuplicateKey } = require('../utils/http');
 const { validate } = require('../utils/validate');
-const { requireAuth, requireAccount } = require('../middleware/auth');
-const { applyRatingDelta } = require('../services/ratings');
+const { requireAuth } = require('../middleware/auth');
+const ratings = require('../services/ratings');
+const { withTransaction } = require('../db');
 
 const router = express.Router();
-router.use(requireAuth, requireAccount);
+router.use(requireAuth);
 
 const COMPLETE_RATIO = 0.95;
 
@@ -137,14 +138,17 @@ router.delete(
   '/',
   asyncHandler(async (req, res) => {
     if (req.user.role === 'demo') throw new HttpError(403, 'The shared guest account cannot be deleted.');
-    const reviews = await Review.find({ user: req.user.id }).select('title rating').lean();
-    await Promise.all(reviews.map((r) => applyRatingDelta(r.title, -1, -r.rating)));
-    await Promise.all([
-      Review.deleteMany({ user: req.user.id }),
-      WatchlistItem.deleteMany({ user: req.user.id }),
-      WatchProgress.deleteMany({ user: req.user.id }),
-      User.deleteOne({ _id: req.user.id }),
-    ]);
+    // One transaction: the account, its reviews, and the rating aggregates they
+    // contributed to disappear together, or not at all. Writes run in sequence
+    // because a session can only run one operation at a time.
+    await withTransaction(async (session) => {
+      const reviews = await Review.find({ user: req.user.id }).select('title rating').session(session).lean();
+      for (const r of reviews) await ratings.applyRatingDelta(r.title, -1, -r.rating, session);
+      await Review.deleteMany({ user: req.user.id }, { session });
+      await WatchlistItem.deleteMany({ user: req.user.id }, { session });
+      await WatchProgress.deleteMany({ user: req.user.id }, { session });
+      await User.deleteOne({ _id: req.user.id }, { session });
+    });
     res.status(204).end();
   })
 );

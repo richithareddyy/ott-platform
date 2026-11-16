@@ -7,8 +7,9 @@ const { GENRES, MATURITY } = Title;
 const { asyncHandler, assertObjectId, HttpError, isDuplicateKey } = require('../utils/http');
 const { validate } = require('../utils/validate');
 const { encodeCursor, decodeCursor, afterCursor } = require('../utils/cursor');
-const { optionalAuth, requireAuth, requireAccount, requireAdmin, signStreamToken } = require('../middleware/auth');
-const { applyRatingDelta } = require('../services/ratings');
+const { optionalAuth, requireAuth, requireAdmin, signStreamToken } = require('../middleware/auth');
+const ratings = require('../services/ratings');
+const { withTransaction } = require('../db');
 
 const router = express.Router();
 
@@ -209,7 +210,6 @@ router.get(
 router.put(
   '/:id/reviews/mine',
   requireAuth,
-  requireAccount,
   forbidDemo,
   asyncHandler(async (req, res) => {
     const id = assertObjectId(req.params.id, 'title id');
@@ -219,26 +219,31 @@ router.put(
     });
     if (!(await Title.exists({ _id: id }))) throw new HttpError(404, 'Title not found');
 
-    const upsert = () => Review.findOneAndUpdate(
-      { user: req.user.id, title: id },
-      { $set: { rating: body.rating, body: body.body, userName: req.user.name } },
-      { upsert: true, new: false, runValidators: true, setDefaultsOnInsert: true }
-    ).lean();
+    // The review and the title aggregate change in one transaction, so a
+    // failure between them rolls both back and a retry starts clean. Write
+    // conflicts with concurrent reviews are retried by withTransaction.
+    const save = () => withTransaction(async (session) => {
+      const previous = await Review.findOneAndUpdate(
+        { user: req.user.id, title: id },
+        { $set: { rating: body.rating, body: body.body, userName: req.user.name } },
+        { upsert: true, new: false, runValidators: true, setDefaultsOnInsert: true, session }
+      ).lean();
+      if (previous) await ratings.applyRatingDelta(id, 0, body.rating - previous.rating, session);
+      else await ratings.applyRatingDelta(id, 1, body.rating, session);
+      return previous;
+    });
 
-    // Concurrent first-time upserts can collide on the unique index; the
-    // losers retry and find the document as an update.
+    // Two first-time reviews from the same user can still collide on the
+    // unique index; the loser retries and finds the review as an update.
     let previous;
     for (let attempt = 1; ; attempt += 1) {
       try {
-        previous = await upsert();
+        previous = await save();
         break;
       } catch (err) {
         if (!isDuplicateKey(err) || attempt === 3) throw err;
       }
     }
-
-    if (previous) await applyRatingDelta(id, 0, body.rating - previous.rating);
-    else await applyRatingDelta(id, 1, body.rating);
     invalidateRows();
     res.status(previous ? 200 : 201).json({ review: { rating: body.rating, body: body.body } });
   })
@@ -250,9 +255,12 @@ router.delete(
   forbidDemo,
   asyncHandler(async (req, res) => {
     const id = assertObjectId(req.params.id, 'title id');
-    const removed = await Review.findOneAndDelete({ user: req.user.id, title: id }).lean();
+    const removed = await withTransaction(async (session) => {
+      const review = await Review.findOneAndDelete({ user: req.user.id, title: id }, { session }).lean();
+      if (review) await ratings.applyRatingDelta(id, -1, -review.rating, session);
+      return review;
+    });
     if (!removed) throw new HttpError(404, 'You have not reviewed this title');
-    await applyRatingDelta(id, -1, -removed.rating);
     res.status(204).end();
   })
 );
