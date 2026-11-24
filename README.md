@@ -22,13 +22,13 @@ After copying `.env`, set `JWT_SECRET` and the seed account passwords in it befo
 
 ## Technical decisions
 
-- **Repeated clicks:** a unique `{user, title}` database index prevents duplicate watchlist, progress, and review records. Repeating a request updates the existing record.
-- **Playback updates:** the player sends its position with a timestamp. Older updates are ignored, so a delayed request cannot rewind saved progress.
+- **Repeated clicks:** a unique `{user, title}` database index prevents duplicate watchlist, progress, and review records. Repeating a request changes the existing record (progress, reviews) or leaves it as it is (watchlist).
+- **Playback updates:** the player sends its position with a timestamp. Updates that are not newer than the saved one are ignored, so a delayed request cannot rewind saved progress.
 - **Ratings:** a review and its title's count, sum, and average change in one transaction. Creating, editing, or deleting a review, and deleting an account with reviews, either commit together or roll back together, so a failure between the writes leaves nothing half-applied and an identical retry starts clean. Concurrent reviews on the same title conflict and are retried rather than overwritten.
-- **Sign-in revocation:** a token only proves who signed in. Every authenticated request reloads the account, so a deleted account is rejected at once and the role stored in the database, not the role in the token, decides access: a demoted admin loses admin rights on their next request.
+- **Sign-in revocation:** a token only proves who signed in. Every API request made with a sign-in token reloads the account, so a deleted account is rejected at once and the role stored in the database, not the role in the token, decides access: a demoted admin loses admin rights on their next request. Stream tokens are the exception: they are checked only for signature, expiry, and title.
 - **Admin edits:** saving checks the version originally opened. If another admin has changed it, the server returns `409 Conflict` instead of overwriting their work.
-- **Streaming:** the player requests portions of a video using HTTP range requests and short-lived tokens for that title.
-- **Catalog pages:** a cursor remembers where the previous page ended, avoiding a scan through all earlier results.
+- **Streaming:** the nine films stream from YouTube, and the app reads the player's position to save progress. Locally hosted files are served by the app instead, using HTTP range requests and short-lived tokens for that title.
+- **Catalog pages:** when browsing, a cursor remembers where the previous page ended, avoiding a scan through all earlier results. Search results use page numbers.
 
 The API lives under `/api`; [the guide](GUIDE.md#rest-api) covers endpoints, database indexes, and deployment. Docker can run the app as well as MongoDB through the `app` profile.
 
