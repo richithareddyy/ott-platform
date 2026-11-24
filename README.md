@@ -45,7 +45,7 @@ The integration suite uses a separate `_test` database and the load test uses `_
 
 **Checking existing data.** `npm run ratings:check` recomputes every title's aggregate from its reviews and lists any mismatch and any orphaned review. It changes nothing and exits 1 if any aggregate is wrong; orphaned reviews alone are listed but exit 0. `npm run ratings:check -- --apply` repairs mismatched aggregates, each inside a transaction; orphaned reviews are only reported. Run it against production deliberately, with `MONGO_URI` set.
 
-**Load test, run 15 November 2026.** One Node.js 24 process and MongoDB 7.0 (single-node replica set) in Docker on an Apple M5 laptop (10 cores); 200 users, 100 concurrent clients, 20 seconds, writes concentrated on 10 titles:
+**Load test, run 15 November 2026**, before the 20 November dependency update (Mongoose 8.24.10); the table has not been re-measured since. One Node.js 24 process, which also runs the clients, and MongoDB 7.0 (single-node replica set) in Docker on an Apple M5 laptop (10 cores); 200 users, 100 concurrent clients, 20 seconds, writes concentrated on 10 titles:
 
 | Operation | Requests | p50 ms | p95 ms | p99 ms |
 |---|---:|---:|---:|---:|
@@ -57,7 +57,7 @@ The integration suite uses a separate `_test` database and the load test uses `_
 | Add to list (write) | 3,946 | 46.8 | 72.0 | 102.6 |
 | Review (write, transactional) | 3,529 | 84.2 | 235.9 | 399.0 |
 
-43,821 requests in 20.0 s (about 2,200 requests per second) with 0 errors. The audit afterwards found 0 duplicate list entries, progress records, or reviews, and 0 titles with wrong rating sums or view counts. Correctness costs latency: review writes on the same few titles conflict inside transactions and are retried, which is why their tail is longest, and signed-in requests now include an account lookup. These are local numbers; the free hosted instance is slower and sleeps when idle.
+43,821 requests in 20.0 s (about 2,200 requests per second) with 0 errors. The audit afterwards found 0 duplicate list entries, progress records, or reviews, and 0 titles with wrong rating sums or view counts. Correctness costs latency: review writes on the same few titles conflict inside transactions and are retried, which is why their tail is longest, and signed-in requests now include an account lookup. These are local numbers and vary with machine load; the hosted instance has not been load-tested, and free Render services sleep when idle.
 
 ## Credits and licenses
 
