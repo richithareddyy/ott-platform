@@ -16,9 +16,9 @@ npm run seed
 npm start
 ```
 
-Before starting, set `JWT_SECRET` and the seed account passwords in `.env`. Open http://localhost:4000 and use the configured demo viewer or admin account.
+After copying `.env`, set `JWT_SECRET` and the seed account passwords in it before running `npm run seed`. (`JWT_SECRET` is enforced only when `NODE_ENV=production`; the app profile below also requires it.) Open http://localhost:4000 and use the configured demo viewer or admin account, or **Try the demo**.
 
-**Seeding resets the target database.** Use it only for a disposable demo database. It loads the films from `scripts/catalog.json` with empty ratings, reviews, and view counts. Titles without a YouTube video can still play local `.mp4` or `.webm` files from `media/`.
+**Seeding resets the target database.** Use it only for a disposable demo database. It loads the films from `scripts/catalog.json` with empty ratings, reviews, and view counts, creates the admin and viewer accounts, and puts four films in the viewer's list. Starting the server also syncs indexes and runs any pending data migration once; the first start on an unseeded database loads the films by itself, without accounts. Titles without a YouTube video can play local `.mp4` or `.webm` files from `media/` once one is assigned on the Admin page.
 
 ## Technical decisions
 
