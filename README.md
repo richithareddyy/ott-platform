@@ -70,6 +70,6 @@ Kinoloft is a portfolio project, not a commercial streaming service, and is not 
 
 The app includes Terms, Privacy, Credits, and Copyright pages (footer links), and signed-in users can delete their account and data from the Account page.
 
-The code in this repository has no open-source license; all rights are reserved by the author.
+The code in this repository is available under the [MIT License](LICENSE). The films and fonts keep their own licenses, listed above.
 
 [Setup, API, and deployment details](GUIDE.md)
