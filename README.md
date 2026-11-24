@@ -4,6 +4,10 @@ You pause a video, open another tab, and come back later expecting your place to
 
 The backend is Node.js, Express, and MongoDB. The frontend is vanilla JavaScript with a hash router. The catalog is nine Creative Commons open movies by the Blender Foundation and Blender Studio, played through YouTube's embedded player; see [Credits and licenses](#credits-and-licenses).
 
+**Live:** https://ott-platform-azon.onrender.com (the first visit after a pause can be slow). **Try the demo** signs you into one guest account shared by all visitors; it can keep a list and playback progress but cannot post reviews.
+
+Search covers titles, directors, credits, cast, genres, and synopses, and falls back to partial title matches. Admins manage the catalog from a link on their Account page. Sign-in, sign-up, and demo requests are rate-limited per IP in memory, so the limit applies to a single server instance.
+
 ## Run locally
 
 Requires Node.js 22.9+ and Docker for MongoDB. MongoDB must run as a **replica set**, because review and account changes use multi-document transactions; `docker compose` starts a single-node set, and every MongoDB Atlas cluster (including the free tier) already is one. The server refuses to start against a standalone MongoDB. From the repository root:
