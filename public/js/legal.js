@@ -6,13 +6,13 @@ const Legal = (() => {
   const issues = () => `${SITE.github}/issues`;
   const ext = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${label}</a>`;
 
-  function shell(eyebrow, title, intro, body) {
+  function shell(eyebrow, title, intro, body, updated = UPDATED) {
     return `<article class="page legal">
       <header class="legal-head">
         <p class="eyebrow">${eyebrow}</p>
         <h1>${title}</h1>
         <p class="legal-intro">${intro}</p>
-        <p class="legal-updated">Last updated ${UPDATED}</p>
+        <p class="legal-updated">Last updated ${updated}</p>
       </header>
       <nav class="legal-nav" aria-label="Policies">
         <a href="#/terms" data-legal="terms">Terms</a><a href="#/privacy" data-legal="privacy">Privacy</a>
@@ -47,10 +47,10 @@ const Legal = (() => {
     <p>Kinoloft is provided as is, without warranties of any kind. To the extent the law allows, its author is not liable for any loss arising from using it.</p>
 
     <h2>Source code</h2>
-    <p>The source is public ${ext(SITE.github, 'on GitHub')}. The repository does not include an open-source license, so viewing the code does not by itself grant permission to reuse it.</p>
+    <p>The source is public ${ext(SITE.github, 'on GitHub')}. The code is available under the ${ext(`${SITE.github}/blob/main/LICENSE`, 'MIT License')}; the films and fonts keep their own licenses.</p>
 
     <h2>Contact</h2>
-    <p>Questions about these terms can be raised by ${ext(issues(), 'opening an issue on GitHub')}. Issues are public, so don't include personal details.</p>`);
+    <p>Questions about these terms can be raised by ${ext(issues(), 'opening an issue on GitHub')}. Issues are public, so don't include personal details.</p>`, '25 November 2026');
 
   const privacy = () => shell('Legal', 'Privacy policy',
     'This page lists exactly what Kinoloft stores, what your browser sends to other services while you use it, and how to delete your data.',
