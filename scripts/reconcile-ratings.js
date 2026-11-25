@@ -1,8 +1,10 @@
 // Finds titles whose stored rating aggregate disagrees with their reviews.
 // Reports only, unless --apply is passed; orphaned reviews are only reported.
 //
-//   npm run ratings:check                 report, exit 1 if anything is wrong
-//   npm run ratings:check -- --apply      also repair the aggregates
+//   npm run ratings:check                 report, exit 1 if any aggregate is wrong
+//   npm run ratings:check -- --apply      also repair the aggregates, exit 0
+//
+// Orphaned reviews alone exit 0. A failure such as no connection exits 2.
 const db = require('../src/db');
 const Title = require('../src/models/Title');
 const Review = require('../src/models/Review');
