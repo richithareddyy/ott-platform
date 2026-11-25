@@ -33,6 +33,7 @@ After copying `.env`, set `JWT_SECRET` and the seed account passwords in it befo
 - **Admin edits:** saving checks the version originally opened. If another admin has changed it, the server returns `409 Conflict` instead of overwriting their work.
 - **Streaming:** the nine films stream from YouTube, and the app reads the player's position to save progress. Locally hosted files are served by the app instead, using HTTP range requests and short-lived tokens for that title.
 - **Catalog pages:** when browsing, a cursor remembers where the previous page ended, avoiding a scan through all earlier results. Search results use page numbers.
+- **Known limitation:** deleting a title is not transactional; the title and its reviews, list entries, and progress are removed in separate writes.
 
 The API lives under `/api`; [the guide](GUIDE.md#rest-api) covers endpoints, database indexes, and deployment. Docker can run the app as well as MongoDB through the `app` profile.
 
