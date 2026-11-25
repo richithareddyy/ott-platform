@@ -89,7 +89,14 @@ Free Render services sleep when idle, so the first request after a pause can tak
 
 ## Scripts
 
-`npm run seed` and `npm run seed:bulk` reset the target database before loading sample data. They first print the host and database they connected to, and refuse anything but `ott_platform` on localhost unless `SEED_ALLOW_ANY_DB=1` is set. Use them only with a database intended for this demo.
+`npm run seed` and `npm run seed:bulk` reset the target database before loading sample data. They first print the host and database they connected to, and refuse to run in two cases. Use them only with a database intended for this demo.
+
+| Refused when | Override |
+|---|---|
+| The target isn't `ott_platform` on localhost | `SEED_ALLOW_ANY_DB=1` |
+| The server's own address (`me` from MongoDB's `hello` command, or the replica-set host list) isn't a host and port named in `MONGO_URI` | `SEED_ALLOW_REDIRECT=1` |
+
+The second check exists because a replica set can redirect the connection: a MongoDB published on port 27917 that advertises `localhost:27017` sends the driver to whatever runs there. `localhost`, `127.0.0.1`, and `[::1]` count as the same host, and a `mongodb+srv` address stands for the hosts its DNS record lists. Neither override implies the other. `SEED_ALLOW_REDIRECT=1` is also needed to seed a server through an address other than the one it advertises, such as a tunnel, a remapped port, or the `mongo` hostname inside Docker, even with `directConnection=true`.
 
 | Command | Description |
 |---|---|

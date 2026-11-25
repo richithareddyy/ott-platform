@@ -5,6 +5,7 @@
 //   npm run seed -- --bulk 50000   also insert 50k synthetic titles
 //
 // Refuses any target except ott_platform on localhost unless SEED_ALLOW_ANY_DB=1.
+// Also refuses a server that isn't the one MONGO_URI names unless SEED_ALLOW_REDIRECT=1.
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -49,6 +50,30 @@ function assertSeedTarget({ address, database }, env = process.env) {
   throw new Error(`Refusing to seed ${address}/${database}: seeding deletes data and only runs on localhost with database ott_platform. Set SEED_ALLOW_ANY_DB=1 to override.`);
 }
 
+// Hosts MONGO_URI names (for mongodb+srv, the hosts its DNS record lists) and
+// the address the server reports for itself.
+async function serverIdentity() {
+  const { connection } = db.mongoose;
+  const named = connection.getClient().options.hosts.map(String);
+  const hello = await connection.db.admin().command({ hello: 1 });
+  return { named, hello };
+}
+
+function sameAddress(a, b) {
+  const normalize = (address) => {
+    const [, host, port = '27017'] = /^(.*?)(?::(\d+))?$/.exec(address.toLowerCase());
+    return `${LOCAL_HOSTS.includes(host) ? 'localhost' : host}:${port}`;
+  };
+  return normalize(a) === normalize(b);
+}
+
+function assertNamedServer({ named, hello }, env = process.env) {
+  if (env.SEED_ALLOW_REDIRECT === '1') return;
+  const reached = hello.me ? [hello.me] : hello.hosts || [];
+  if (reached.some((r) => named.some((n) => sameAddress(n, r)))) return;
+  throw new Error(`Refusing to seed: MONGO_URI names ${named.join(', ')}, but the server reached identifies itself as ${reached.join(', ') || 'unknown'}. Nothing was changed. Fix MONGO_URI, or set SEED_ALLOW_REDIRECT=1 to override.`);
+}
+
 async function seedBulk(n) {
   const words = ['Silent', 'Crimson', 'Northern', 'Hidden', 'Broken', 'Golden', 'Midnight', 'Lost', 'Electric', 'Distant',
     'River', 'Empire', 'Signal', 'Garden', 'Horizon', 'Station', 'Harbor', 'Echo', 'Forest', 'Machine'];
@@ -89,10 +114,13 @@ async function main() {
     process.exit(1);
   }
 
+  // Otherwise Mongoose creates empty collections on connect, before the checks below.
+  db.mongoose.set('autoCreate', false);
   await db.connect();
   const target = resolvedTarget();
   console.log(`Seed target: host ${target.address}, database ${target.database}`);
   assertSeedTarget(target);
+  assertNamedServer(await serverIdentity());
   console.log(`Seeding ${config.mongoUri.replace(/\/\/[^@]*@/, '//***@')}`);
 
   await Promise.all([User, Title, Review, WatchlistItem, WatchProgress].map((m) => m.deleteMany({})));
@@ -130,4 +158,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { assertSeedTarget };
+module.exports = { assertSeedTarget, assertNamedServer };
