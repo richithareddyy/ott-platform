@@ -2,6 +2,7 @@
   "name": "ott-platform",
   "version": "1.0.0",
   "description": "Web-based OTT streaming platform built with Node.js, Express.js, MongoDB, and vanilla JavaScript.",
+  "license": "MIT",
   "main": "src/server.js",
   "private": true,
   "type": "commonjs",
