@@ -80,14 +80,16 @@ The app deploys as a single Docker web service with a hosted MongoDB database.
 3. **Seed the hosted database** from your machine, using strong passwords for the demo accounts:
 
    ```bash
-   MONGO_URI="<atlas connection string>" SEED_ADMIN_PASSWORD="<strong password>" npm run seed
+   SEED_ALLOW_ANY_DB=1 MONGO_URI="<atlas connection string>" SEED_ADMIN_PASSWORD="<strong password>" SEED_USER_PASSWORD="<strong password>" npm run seed
    ```
+
+   This deletes every account, list, progress record, and review already there. `SEED_ALLOW_ANY_DB=1` is required because the target isn't `ott_platform` on localhost. Seeding is optional for the films, which load on first start; it adds the admin and viewer accounts.
 
 Free Render services sleep when idle, so the first request after a pause can take up to a minute.
 
 ## Scripts
 
-`npm run seed` resets the target database before loading sample data. Use it only with a database intended for this demo.
+`npm run seed` and `npm run seed:bulk` reset the target database before loading sample data. They first print the host and database they connected to, and refuse anything but `ott_platform` on localhost unless `SEED_ALLOW_ANY_DB=1` is set. Use them only with a database intended for this demo.
 
 | Command | Description |
 |---|---|
@@ -197,7 +199,7 @@ Results depend on hardware and machine load. The [README](README.md#checks) has 
 
 ## Tests and remaining tradeoffs
 
-`npm test` uses Node's test runner and Supertest against MongoDB. Tests cover authentication, authorization on catalog-changing routes, catalog operations, byte-range responses, duplicate writes, rating aggregates (including failed and retried writes), stale playback updates, conflicting admin edits, the ratings check, and the startup migration. The default database is `ott_platform_test`; `MONGO_URI_TEST` overrides it. The test helper drops that database during setup and teardown.
+`npm test` uses Node's test runner and Supertest against MongoDB. Tests cover authentication, authorization on catalog-changing routes, catalog operations, byte-range responses, duplicate writes, rating aggregates (including failed and retried writes), stale playback updates, conflicting admin edits, the ratings check, the startup migration, and the seed guard. The default database is `ott_platform_test`; `MONGO_URI_TEST` overrides it. The test helper drops that database during setup and teardown.
 
 Review changes and title rating aggregates commit in one transaction, and so does account deletion. Progress creation and view-count updates are still separate writes: each is atomic, but a process failure between them can leave a view count one short. Deleting a title is not transactional either: the title and its reviews, list entries, and progress are removed in separate writes. `npm run ratings:check` reports rating drift without changing data. The load test checks concurrency within a running process; it does not test crash recovery. The service plays YouTube embeds, serves local media files, and does not implement transcoding, adaptive streaming, subscriptions, or DRM.
 

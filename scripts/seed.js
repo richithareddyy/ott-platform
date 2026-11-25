@@ -3,6 +3,8 @@
 //
 //   npm run seed
 //   npm run seed -- --bulk 50000   also insert 50k synthetic titles
+//
+// Refuses any target except ott_platform on localhost unless SEED_ALLOW_ANY_DB=1.
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -27,6 +29,24 @@ function mediaFiles() {
   } catch {
     return [];
   }
+}
+
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]', '::1'];
+
+// The server the driver is really talking to. A replica set can redirect the
+// driver to the address it advertises, so MONGO_URI alone doesn't prove this.
+function resolvedTarget() {
+  const { connection } = db.mongoose;
+  const servers = [...(connection.getClient().topology?.description?.servers?.values() || [])];
+  const writable = servers.find((s) => s.isWritable) || servers[0];
+  return { address: writable?.address || 'unknown', database: connection.name };
+}
+
+function assertSeedTarget({ address, database }, env = process.env) {
+  if (env.SEED_ALLOW_ANY_DB === '1') return;
+  const host = address.replace(/:\d+$/, '');
+  if (LOCAL_HOSTS.includes(host) && database === 'ott_platform') return;
+  throw new Error(`Refusing to seed ${address}/${database}: seeding deletes data and only runs on localhost with database ott_platform. Set SEED_ALLOW_ANY_DB=1 to override.`);
 }
 
 async function seedBulk(n) {
@@ -70,6 +90,9 @@ async function main() {
   }
 
   await db.connect();
+  const target = resolvedTarget();
+  console.log(`Seed target: host ${target.address}, database ${target.database}`);
+  assertSeedTarget(target);
   console.log(`Seeding ${config.mongoUri.replace(/\/\/[^@]*@/, '//***@')}`);
 
   await Promise.all([User, Title, Review, WatchlistItem, WatchProgress].map((m) => m.deleteMany({})));
@@ -99,8 +122,12 @@ async function main() {
   await db.disconnect();
 }
 
-main().catch(async (err) => {
-  console.error(err);
-  await db.disconnect().catch(() => {});
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(async (err) => {
+    console.error(err);
+    await db.disconnect().catch(() => {});
+    process.exit(1);
+  });
+}
+
+module.exports = { assertSeedTarget };
